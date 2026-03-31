@@ -1,7 +1,7 @@
 # FNH Monolith — Implementation Plan
 
-> **Last updated:** 2026-03-30
-> **Status:** Phase 0 ✅ complete | Phase 1 ✅ complete | Phase 2 ✅ complete | Phase 3 ✅ complete | Phase 4 ✅ complete | Phase 5 ✅ complete | Phase 6 ✅ complete
+> **Last updated:** 2026-03-31
+> **Status:** Phase 0 ✅ complete | Phase 1 ✅ complete | Phase 2 ✅ complete | Phase 3 ✅ complete | Phase 4 ✅ complete | Phase 5 ✅ complete | Phase 6 ✅ complete | Phase 7 ✅ complete
 
 ## Stack
 
@@ -196,6 +196,17 @@ app/
 - **Status chips** (Firmado / Pendiente): `font-mono text-xs` with colored text + matching border/bg at low opacity; rounded-full pill shape
 - **Detail Row component** (`ContractDetail`): label column `w-44 text-xs uppercase tracking-wide`; value optionally `font-mono`
 - **PDF integrity result**: colored border+bg block with `font-mono text-[11px]` hash display
+
+### Phase 7 — Deployment and Build Hardening ✅
+- **GitHub repo**: [github.com/Palaitox/FNH-Monolith](https://github.com/Palaitox/FNH-Monolith) — branch `main`; CI autodeploy on push enabled via Vercel ↔ GitHub integration
+- **Production URL**: [fnh-monolith.vercel.app](https://fnh-monolith.vercel.app)
+- **`.gitignore` additions**: `.claude/` (Claude Code local config) and `.playwright-mcp/` (MCP test artifacts) excluded from version control
+- **Vercel project**: `fnh-monolith` under `rdpalau-2419s-projects` scope; linked with `vercel link --project fnh-monolith`
+- **7 production env vars** set via Vercel CLI: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `RESEND_API_KEY`, `CRON_SECRET`, `RESEND_FROM_EMAIL`, `NOTIFICATION_RECIPIENT`
+- **Build warning fixes**: removed genuinely unused `btnPrimary` and `fieldClass` from `ContractDetail.tsx`; removed unused `ext` variable from `templates/page.tsx`
+- **Build review finding (HIGH)**: `eslint-disable-next-line` comment incorrectly suppressed a valid `res` usage in `import/page.tsx` — caused by indentation error during the quick fix. Corrected by removing the comment and fixing indentation; `res` is correctly consumed by `setResult(res)` on the next line
+- **ESLint config**: added `@typescript-eslint/no-unused-vars: ['warn', { ignoreRestSiblings: true }]` to `eslint.config.mjs` to correctly handle the `({ source, ...e }) => e` destructure-to-omit pattern (ND-21)
+- **Clean build**: zero errors, zero warnings on final deploy
 
 ### Phase 6 — Features and UX Polish ✅
 - **Email env vars**: `RESEND_FROM_EMAIL` and `NOTIFICATION_RECIPIENT` added to `.env.local`; notification system fully configured
