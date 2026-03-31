@@ -54,8 +54,7 @@ export default function ImportPage() {
     if (!parsed.length) return
     startConfirming(async () => {
       try {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const res = await confirmExcelImportAction(parsed.map(({ source, ...e }) => e))
+        const res = await confirmExcelImportAction(parsed.map(({ source, ...e }) => e))
         setResult(res)
         setPhase('done')
       } catch (err) {
