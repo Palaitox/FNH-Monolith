@@ -53,6 +53,11 @@ export default [
     },
 
     rules: {
+      // ignoreRestSiblings allows destructuring a variable solely to exclude it
+      // from a rest spread (e.g. `({ source, ...e }) => e`). This is standard
+      // TypeScript practice and should not be flagged as unused.
+      '@typescript-eslint/no-unused-vars': ['warn', { ignoreRestSiblings: true }],
+
       'boundaries/element-types': [
         'error',
         {
