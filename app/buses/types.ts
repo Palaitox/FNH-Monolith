@@ -115,6 +115,31 @@ export interface GA_F_094_Report {
   generated_at: string
 }
 
+// ── Fleet compliance (dashboard) ──────────────────────────────────────────
+
+export interface EntityComplianceSummary {
+  id: string
+  /** full_name for drivers, plate for vehicles */
+  name: string
+  entity_type: 'driver' | 'vehicle'
+  /** Route to the entity detail page */
+  href: string
+  overall: DocumentStatus
+  counts: Record<DocumentStatus, number>
+  /** Names of Crítico or Alerta documents — shown in the attention list */
+  urgentDocs: string[]
+}
+
+export interface FleetComplianceSummary {
+  entities: EntityComplianceSummary[]
+  /** How many entities (not documents) are at each status level */
+  entityCounts: Record<DocumentStatus, number>
+  /** Subset of entities with overall = Crítico or Alerta, sorted worst-first */
+  needsAttention: EntityComplianceSummary[]
+  totalEntities: number
+  lastComputedAt: string
+}
+
 // ── Input types for mutations ──────────────────────────────────────────────
 
 export interface RecordDocumentInput {

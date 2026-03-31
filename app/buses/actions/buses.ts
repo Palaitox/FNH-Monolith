@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache'
 import { getDriverCompliance, getVehicleCompliance } from '@/app/buses/lib/compliance-checker'
 import { buildGA_F_094_Report } from '@/app/buses/lib/report-builder'
 import { computeStatus } from '@/app/buses/lib/expiry-calculator'
+import { getFleetCompliance } from '@/app/buses/lib/fleet-compliance'
 import type {
   Driver,
   Vehicle,
@@ -13,6 +14,7 @@ import type {
   VerificationPairWithEntities,
   DocumentRequirement,
   ComplianceResult,
+  FleetComplianceSummary,
   GA_F_094_Report,
   RecordDocumentInput,
 } from '@/app/buses/types'
@@ -281,6 +283,11 @@ export async function getVehicleComplianceAction(
 ): Promise<ComplianceResult> {
   const supabase = await createClient()
   return getVehicleCompliance(supabase, vehicleId)
+}
+
+export async function getFleetComplianceAction(): Promise<FleetComplianceSummary> {
+  const supabase = await createClient()
+  return getFleetCompliance(supabase)
 }
 
 // ── GA-F-094 Report ────────────────────────────────────────────────────────
