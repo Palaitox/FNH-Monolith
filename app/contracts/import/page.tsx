@@ -54,7 +54,7 @@ export default function ImportPage() {
     if (!parsed.length) return
     startConfirming(async () => {
       try {
-        const res = await confirmExcelImportAction(parsed.map(({ source: _, ...e }) => e))
+        const res = await confirmExcelImportAction(parsed.map(({ source: _src, ...e }) => e))
         setResult(res)
         setPhase('done')
       } catch (err) {

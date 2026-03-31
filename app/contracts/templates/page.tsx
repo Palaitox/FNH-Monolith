@@ -55,7 +55,6 @@ export default function TemplatesPage() {
     setUploading(true)
     try {
       const supabase = createClient()
-      const ext = selectedFile.name.split('.').pop() ?? 'docx'
       const storagePath = `templates/${Date.now()}_${selectedFile.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
 
       const { error: upErr } = await supabase.storage
