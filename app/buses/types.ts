@@ -128,6 +128,8 @@ export interface EntityComplianceSummary {
   counts: Record<DocumentStatus, number>
   /** Names of Crítico or Alerta documents — shown in the attention list */
   urgentDocs: string[]
+  /** Required documents that have never been recorded for this entity */
+  missingCount: number
 }
 
 export interface FleetComplianceSummary {

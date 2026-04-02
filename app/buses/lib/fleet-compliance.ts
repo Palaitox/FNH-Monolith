@@ -213,6 +213,8 @@ function buildEntitySummary(
     ([s, n]) => Array<DocumentStatus>(n).fill(s),
   )
 
+  const missingCount = reqMap.size - seen.size
+
   return {
     id,
     name,
@@ -221,5 +223,6 @@ function buildEntitySummary(
     overall: worstStatus(allStatuses),
     counts,
     urgentDocs,
+    missingCount,
   }
 }

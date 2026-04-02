@@ -144,11 +144,16 @@ export default async function DashboardPage() {
                         {entity.entity_type === 'driver' ? 'Conductor' : 'Vehículo'}
                       </span>
                     </div>
-                    {entity.urgentDocs.length > 0 && (
-                      <p className="text-xs text-muted-foreground truncate">
-                        {entity.urgentDocs.join(' · ')}
-                      </p>
-                    )}
+                    <p className="text-xs text-muted-foreground truncate">
+                      {[
+                        entity.urgentDocs.join(' · '),
+                        entity.missingCount > 0
+                          ? `${entity.missingCount} doc${entity.missingCount !== 1 ? 's' : ''} sin registrar`
+                          : '',
+                      ]
+                        .filter(Boolean)
+                        .join(' · ') || 'Sin información de documentos'}
+                    </p>
                   </div>
                   <div className="ml-4 shrink-0">
                     <StatusBadge status={entity.overall} />
