@@ -264,7 +264,7 @@ export async function recordDriverDocumentsAction(
     ])
     const driverName = driverRes.data?.full_name ?? driverId
     const reqNames = new Map((reqRes.data ?? []).map((r) => [r.id, r.name]))
-    await Promise.all(
+    const results = await Promise.all(
       newCritico.map((r) =>
         sendDocumentAlert({
           entityType: 'driver',
@@ -275,6 +275,13 @@ export async function recordDriverDocumentsAction(
         }),
       ),
     )
+    results.forEach((res, i) => {
+      if (res.status === 'failed') {
+        console.error(`[notify] driver alert failed for req ${newCritico[i].requirement_id}:`, res.error)
+      } else {
+        console.log(`[notify] driver alert sent for req ${newCritico[i].requirement_id}`)
+      }
+    })
   }
 
   revalidatePath(`/buses/drivers/${driverId}`)
@@ -322,7 +329,7 @@ export async function recordVehicleDocumentsAction(
     ])
     const vehiclePlate = vehicleRes.data?.plate ?? vehicleId
     const reqNames = new Map((reqRes.data ?? []).map((r) => [r.id, r.name]))
-    await Promise.all(
+    const results = await Promise.all(
       newCritico.map((r) =>
         sendDocumentAlert({
           entityType: 'vehicle',
@@ -333,6 +340,13 @@ export async function recordVehicleDocumentsAction(
         }),
       ),
     )
+    results.forEach((res, i) => {
+      if (res.status === 'failed') {
+        console.error(`[notify] vehicle alert failed for req ${newCritico[i].requirement_id}:`, res.error)
+      } else {
+        console.log(`[notify] vehicle alert sent for req ${newCritico[i].requirement_id}`)
+      }
+    })
   }
 
   revalidatePath(`/buses/vehicles/${vehicleId}`)
