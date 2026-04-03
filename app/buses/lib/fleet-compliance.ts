@@ -20,7 +20,7 @@ import type {
   EntityComplianceSummary,
   FleetComplianceSummary,
 } from '@/app/buses/types'
-import { worstStatus, STATUS_SEVERITY } from './expiry-calculator'
+import { computeStatus, worstStatus, STATUS_SEVERITY } from './expiry-calculator'
 
 export async function getFleetCompliance(
   supabase: SupabaseClient,
@@ -52,7 +52,7 @@ export async function getFleetCompliance(
     driverIds.length > 0
       ? supabase
           .from('driver_document_events')
-          .select('driver_id, requirement_id, computed_status, recorded_at')
+          .select('driver_id, requirement_id, expiry_date, computed_status, recorded_at')
           .in('driver_id', driverIds)
           .lte('recorded_at', asOfIso)
           .order('recorded_at', { ascending: false })
@@ -61,7 +61,7 @@ export async function getFleetCompliance(
     vehicleIds.length > 0
       ? supabase
           .from('vehicle_document_events')
-          .select('vehicle_id, requirement_id, computed_status, recorded_at')
+          .select('vehicle_id, requirement_id, expiry_date, computed_status, recorded_at')
           .in('vehicle_id', vehicleIds)
           .lte('recorded_at', asOfIso)
           .order('recorded_at', { ascending: false })
@@ -69,7 +69,7 @@ export async function getFleetCompliance(
 
     supabase
       .from('document_requirements')
-      .select('id, name, effective_from, effective_to'),
+      .select('id, name, has_expiry, effective_from, effective_to'),
   ])
 
   const driverEvents = (driverEventsRes.data ?? []) as RawDriverEvent[]
@@ -77,11 +77,11 @@ export async function getFleetCompliance(
   const requirements = (reqsRes.data ?? []) as RawRequirement[]
 
   // ── Build effectivity-filtered requirement map ────────────────────────────
-  const reqMap = new Map<string, { name: string }>()
+  const reqMap = new Map<string, { name: string; has_expiry: boolean }>()
   for (const req of requirements) {
     if (req.effective_from > asOfDate) continue
     if (req.effective_to && req.effective_to <= asOfDate) continue
-    reqMap.set(req.id, { name: req.name })
+    reqMap.set(req.id, { name: req.name, has_expiry: req.has_expiry })
   }
 
   // ── Group raw events by entity id ─────────────────────────────────────────
@@ -108,7 +108,7 @@ export async function getFleetCompliance(
         'driver',
         (driverEventsMap.get(d.id) ?? []).map((e) => ({
           requirement_id: e.requirement_id,
-          computed_status: e.computed_status,
+          expiry_date: e.expiry_date,
         })),
         reqMap,
       ),
@@ -120,7 +120,7 @@ export async function getFleetCompliance(
         'vehicle',
         (vehicleEventsMap.get(v.id) ?? []).map((e) => ({
           requirement_id: e.requirement_id,
-          computed_status: e.computed_status,
+          expiry_date: e.expiry_date,
         })),
         reqMap,
       ),
@@ -158,6 +158,7 @@ export async function getFleetCompliance(
 interface RawDriverEvent {
   driver_id: string
   requirement_id: string
+  expiry_date: string | null
   computed_status: string
   recorded_at: string
 }
@@ -165,6 +166,7 @@ interface RawDriverEvent {
 interface RawVehicleEvent {
   vehicle_id: string
   requirement_id: string
+  expiry_date: string | null
   computed_status: string
   recorded_at: string
 }
@@ -172,6 +174,7 @@ interface RawVehicleEvent {
 interface RawRequirement {
   id: string
   name: string
+  has_expiry: boolean
   effective_from: string
   effective_to: string | null
 }
@@ -182,8 +185,8 @@ function buildEntitySummary(
   id: string,
   name: string,
   entityType: 'driver' | 'vehicle',
-  events: { requirement_id: string; computed_status: string }[],
-  reqMap: Map<string, { name: string }>,
+  events: { requirement_id: string; expiry_date: string | null }[],
+  reqMap: Map<string, { name: string; has_expiry: boolean }>,
 ): EntityComplianceSummary {
   const counts: Record<DocumentStatus, number> = {
     Vigente: 0,
@@ -196,16 +199,19 @@ function buildEntitySummary(
 
   // Events arrive pre-sorted desc by recorded_at — first occurrence per
   // requirement_id is the most recent (DISTINCT ON replication).
+  // Recompute status from source truth rather than using the stored value,
+  // so logic fixes apply to historical events automatically.
   for (const ev of events) {
     if (seen.has(ev.requirement_id)) continue
-    if (!reqMap.has(ev.requirement_id)) continue
+    const req = reqMap.get(ev.requirement_id)
+    if (!req) continue
     seen.add(ev.requirement_id)
 
-    const status = ev.computed_status as DocumentStatus
+    const status = computeStatus(ev.expiry_date, req.has_expiry)
     counts[status]++
 
     if (status === 'Crítico' || status === 'Alerta') {
-      urgentDocs.push(reqMap.get(ev.requirement_id)!.name)
+      urgentDocs.push(req.name)
     }
   }
 

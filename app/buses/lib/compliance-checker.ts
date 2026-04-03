@@ -15,7 +15,7 @@ import type {
   DocumentStatus,
   DocumentStatusRow,
 } from '@/app/buses/types'
-import { worstStatus, STATUS_SEVERITY } from './expiry-calculator'
+import { computeStatus, worstStatus, STATUS_SEVERITY } from './expiry-calculator'
 
 /**
  * Returns the current compliance status for a driver.
@@ -124,7 +124,7 @@ function buildDistinctRows(
       has_expiry: req.has_expiry,
       expiry_date: ev.expiry_date,
       is_illegible: ev.is_illegible,
-      computed_status: ev.computed_status,
+      computed_status: computeStatus(ev.expiry_date, req.has_expiry),
       recorded_at: ev.recorded_at,
     })
   }

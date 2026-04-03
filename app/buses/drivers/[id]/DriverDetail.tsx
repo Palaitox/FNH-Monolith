@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { StatusBadge } from '@/app/buses/components/StatusBadge'
+import { daysUntilExpiry } from '@/app/buses/lib/expiry-calculator'
 import {
   recordDriverDocumentsAction,
   deactivateDriverAction,
@@ -19,6 +20,21 @@ interface Props {
   driver: Driver
   compliance: ComplianceResult
   requirements: DocumentRequirement[]
+}
+
+function DaysChip({ days }: { days: number | null }) {
+  if (days === null) return null
+  if (days < 0)
+    return <p className="text-xs text-red-500">Vencido hace {Math.abs(days)} días</p>
+  if (days === 0)
+    return <p className="text-xs text-red-500">Vence hoy</p>
+  if (days <= 21)
+    return <p className="text-xs text-red-500">{days} día{days !== 1 ? 's' : ''}</p>
+  if (days <= 60)
+    return <p className="text-xs text-amber-500">{days} días</p>
+  if (days <= 90)
+    return <p className="text-xs text-blue-500">{days} días</p>
+  return <p className="text-xs text-green-500">{days} días</p>
 }
 
 const labelClass = "text-xs font-medium uppercase tracking-wide text-muted-foreground"
@@ -118,8 +134,17 @@ export default function DriverDetail({ driver, compliance, requirements }: Props
                       <span className="ml-2 font-mono text-xs text-amber-500">(ilegible)</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 font-mono text-sm text-muted-foreground">
-                    {row.expiry_date ?? (row.has_expiry ? '—' : 'N/A')}
+                  <td className="px-4 py-3">
+                    {row.expiry_date ? (
+                      <div className="space-y-0.5">
+                        <p className="font-mono text-sm text-muted-foreground">{row.expiry_date}</p>
+                        <DaysChip days={daysUntilExpiry(row.expiry_date)} />
+                      </div>
+                    ) : (
+                      <span className="font-mono text-sm text-muted-foreground">
+                        {row.has_expiry ? '—' : 'Sin vencimiento'}
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <StatusBadge status={row.computed_status} />
