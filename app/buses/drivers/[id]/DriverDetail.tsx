@@ -23,10 +23,12 @@ interface Props {
   requirements: DocumentRequirement[]
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────
+
 function DaysChip({ days }: { days: number | null }) {
   if (days === null) return null
   if (days < 0)
-    return <p className="text-xs text-red-500">Vencido hace {Math.abs(days)} días</p>
+    return <p className="text-xs text-red-500">Vencida hace {Math.abs(days)} días</p>
   if (days === 0)
     return <p className="text-xs text-red-500">Vence hoy</p>
   if (days <= 21)
@@ -38,10 +40,30 @@ function DaysChip({ days }: { days: number | null }) {
   return <p className="text-xs text-green-500">{days} días</p>
 }
 
+function PresentedChip() {
+  return (
+    <span className="inline-block rounded-full px-2.5 py-0.5 text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+      Presentado
+    </span>
+  )
+}
+
+function PendingChip() {
+  return (
+    <span className="inline-block rounded-full px-2.5 py-0.5 text-xs font-medium bg-muted text-muted-foreground">
+      Pendiente
+    </span>
+  )
+}
+
+// ── Styles ────────────────────────────────────────────────────────────────
+
 const labelClass = "text-xs font-medium uppercase tracking-wide text-muted-foreground"
 const btnPrimary = "rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
 const btnSecondary = "rounded-md border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
 const fieldClass = "rounded-md border border-border bg-card px-2 py-1.5 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring transition-colors"
+
+// ── Component ─────────────────────────────────────────────────────────────
 
 export default function DriverDetail({ driver, compliance, requirements }: Props) {
   const router = useRouter()
@@ -51,28 +73,66 @@ export default function DriverDetail({ driver, compliance, requirements }: Props
   const [deleteConfirm, setDeleteConfirm] = useState(false)
   const [showDocForm, setShowDocForm] = useState(false)
 
-  const [docInputs, setDocInputs] = useState<
-    Record<string, { expiry_date: string; is_illegible: boolean }>
-  >(() =>
+  const recordedIds = new Set(compliance.rows.map((r) => r.requirement_id))
+
+  // Checklist items (has_expiry=false): checked if already recorded (disabled),
+  // unchecked if not yet recorded (editable).
+  const [checked, setChecked] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(
-      requirements.map((r) => [
-        r.id,
-        {
-          expiry_date: compliance.rows.find((row) => row.requirement_id === r.id)?.expiry_date ?? '',
-          is_illegible: compliance.rows.find((row) => row.requirement_id === r.id)?.is_illegible ?? false,
-        },
-      ]),
+      requirements
+        .filter((r) => !r.has_expiry)
+        .map((r) => [r.id, recordedIds.has(r.id)]),
     ),
   )
 
+  // Expiry items (has_expiry=true): pre-fill from latest recorded event.
+  const [expiryInputs, setExpiryInputs] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      requirements
+        .filter((r) => r.has_expiry)
+        .map((r) => [
+          r.id,
+          compliance.rows.find((row) => row.requirement_id === r.id)?.expiry_date ?? '',
+        ]),
+    ),
+  )
+
+  const checklistReqs = requirements.filter((r) => !r.has_expiry)
+  const expiryReqs = requirements.filter((r) => r.has_expiry)
+
+  // Count checklist progress
+  const checklistTotal = checklistReqs.length
+  const checklistDone = checklistReqs.filter((r) => recordedIds.has(r.id)).length
+
   function handleSaveDocs() {
     setError(null)
-    const documents: RecordDocumentInput[] = requirements.map((r) => ({
-      requirement_id: r.id,
-      expiry_date: docInputs[r.id]?.expiry_date || null,
-      is_illegible: docInputs[r.id]?.is_illegible ?? false,
-      has_expiry: r.has_expiry,
-    }))
+
+    const documents: RecordDocumentInput[] = [
+      // Only submit newly-checked checklist items (already recorded ones need no new event)
+      ...checklistReqs
+        .filter((r) => checked[r.id] && !recordedIds.has(r.id))
+        .map((r) => ({
+          requirement_id: r.id,
+          expiry_date: null,
+          is_illegible: false,
+          has_expiry: false,
+        })),
+      // Submit expiry items that have a date
+      ...expiryReqs
+        .filter((r) => expiryInputs[r.id])
+        .map((r) => ({
+          requirement_id: r.id,
+          expiry_date: expiryInputs[r.id],
+          is_illegible: false,
+          has_expiry: true,
+        })),
+    ]
+
+    if (documents.length === 0) {
+      setError('No hay cambios nuevos para guardar.')
+      return
+    }
+
     startTransition(async () => {
       try {
         await recordDriverDocumentsAction(driver.id, documents)
@@ -114,8 +174,30 @@ export default function DriverDetail({ driver, compliance, requirements }: Props
         <StatusBadge status={compliance.overall} />
       </div>
 
-      {/* Summary counts */}
-      <div className="grid grid-cols-4 gap-3">
+      {/* Checklist progress + expiry counts */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="col-span-2 rounded-lg border border-border bg-card p-3 flex items-center gap-4">
+          <div className="flex-1">
+            <p className={labelClass}>Documentos entregados</p>
+            <p className="text-2xl font-semibold tracking-tight mt-1">
+              {checklistDone}
+              <span className="text-base font-normal text-muted-foreground">/{checklistTotal}</span>
+            </p>
+          </div>
+          <div className="w-16 h-16 relative">
+            <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
+              <circle cx="18" cy="18" r="15.9" fill="none" stroke="currentColor"
+                strokeWidth="2.5" className="text-muted/30" />
+              <circle cx="18" cy="18" r="15.9" fill="none" stroke="currentColor"
+                strokeWidth="2.5" strokeDasharray={`${(checklistDone / checklistTotal) * 100} 100`}
+                strokeLinecap="round"
+                className={checklistDone === checklistTotal ? 'text-green-500' : 'text-primary'} />
+            </svg>
+            <span className="absolute inset-0 flex items-center justify-center text-xs font-semibold rotate-0">
+              {Math.round((checklistDone / checklistTotal) * 100)}%
+            </span>
+          </div>
+        </div>
         {(['Vigente', 'Seguimiento', 'Alerta', 'Crítico'] as const).map((s) => (
           <div key={s} className="rounded-lg border border-border bg-card p-3 text-center space-y-2">
             <p className="text-2xl font-semibold tracking-tight">{compliance.counts[s]}</p>
@@ -124,93 +206,106 @@ export default function DriverDetail({ driver, compliance, requirements }: Props
         ))}
       </div>
 
-      {/* Document status table */}
-      {compliance.rows.length > 0 ? (
-        <div className="rounded-lg border border-border overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-muted/40">
-                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">Documento</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">Vencimiento</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">Estado</th>
-              </tr>
-            </thead>
-            <tbody>
-              {compliance.rows.map((row) => (
-                <tr key={row.requirement_id} className="border-b border-border/60 last:border-0 hover:bg-muted/20 transition-colors">
+      {/* Documents table — all requirements */}
+      <div className="rounded-lg border border-border overflow-hidden">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border bg-muted/40">
+              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">Documento</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">Estado</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">Detalle</th>
+            </tr>
+          </thead>
+          <tbody>
+            {requirements.map((req) => {
+              const recorded = compliance.rows.find((r) => r.requirement_id === req.id)
+              return (
+                <tr key={req.id} className="border-b border-border/60 last:border-0 hover:bg-muted/20 transition-colors">
+                  <td className="px-4 py-3">{req.name}</td>
                   <td className="px-4 py-3">
-                    {row.requirement_name}
-                    {row.is_illegible && (
-                      <span className="ml-2 font-mono text-xs text-amber-500">(ilegible)</span>
+                    {req.has_expiry ? (
+                      recorded
+                        ? <StatusBadge status={recorded.computed_status} />
+                        : <span className="inline-block rounded-full px-2.5 py-0.5 text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">Sin registrar</span>
+                    ) : (
+                      recorded ? <PresentedChip /> : <PendingChip />
                     )}
                   </td>
-                  <td className="px-4 py-3">
-                    {row.expiry_date ? (
+                  <td className="px-4 py-3 text-muted-foreground">
+                    {req.has_expiry && recorded?.expiry_date ? (
                       <div className="space-y-0.5">
-                        <p className="font-mono text-sm text-muted-foreground">{row.expiry_date}</p>
-                        <DaysChip days={daysUntilExpiry(row.expiry_date)} />
+                        <p className="font-mono text-sm">{recorded.expiry_date}</p>
+                        <DaysChip days={daysUntilExpiry(recorded.expiry_date)} />
                       </div>
                     ) : (
-                      <span className="font-mono text-sm text-muted-foreground">
-                        {row.has_expiry ? '—' : 'Sin vencimiento'}
-                      </span>
+                      <span className="text-xs">—</span>
                     )}
                   </td>
-                  <td className="px-4 py-3">
-                    <StatusBadge status={row.computed_status} />
-                  </td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-          No hay registros documentales. Usa el botón de abajo para ingresar los documentos.
-        </div>
-      )}
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
 
       {/* Document entry form */}
       {showDocForm && (
-        <div className="rounded-lg border border-border bg-card p-5 space-y-4">
-          <h2 className={labelClass}>Registrar / actualizar documentos</h2>
-          <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
-            {requirements.map((req) => (
-              <div key={req.id} className="flex items-center gap-3 py-1">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm truncate">{req.name}</p>
-                </div>
-                {req.has_expiry ? (
+        <div className="rounded-lg border border-border bg-card p-5 space-y-5">
+          <h2 className={labelClass}>Registrar documentos</h2>
+
+          {/* Checklist section */}
+          {checklistReqs.length > 0 && (
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground mb-2">
+                Los documentos ya entregados aparecen marcados y no se pueden desmarcar.
+              </p>
+              {checklistReqs.map((req) => {
+                const alreadyRecorded = recordedIds.has(req.id)
+                return (
+                  <label
+                    key={req.id}
+                    className={`flex items-center gap-3 py-2 px-3 rounded-md transition-colors ${
+                      alreadyRecorded
+                        ? 'opacity-60 cursor-not-allowed'
+                        : 'cursor-pointer hover:bg-muted/20'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked[req.id] ?? false}
+                      disabled={alreadyRecorded}
+                      onChange={(e) =>
+                        setChecked((prev) => ({ ...prev, [req.id]: e.target.checked }))
+                      }
+                      className="h-4 w-4 rounded border-border accent-primary"
+                    />
+                    <span className="text-sm">{req.name}</span>
+                    {alreadyRecorded && <PresentedChip />}
+                  </label>
+                )
+              })}
+            </div>
+          )}
+
+          {/* Expiry section */}
+          {expiryReqs.length > 0 && (
+            <div className="space-y-2 border-t border-border pt-4">
+              <p className={labelClass}>Con fecha de vencimiento</p>
+              {expiryReqs.map((req) => (
+                <div key={req.id} className="flex items-center gap-3 py-1">
+                  <span className="flex-1 text-sm">{req.name}</span>
                   <input
                     type="date"
                     className={`${fieldClass} w-36`}
-                    value={docInputs[req.id]?.expiry_date ?? ''}
+                    value={expiryInputs[req.id] ?? ''}
                     onChange={(e) =>
-                      setDocInputs((prev) => ({
-                        ...prev,
-                        [req.id]: { ...prev[req.id], expiry_date: e.target.value },
-                      }))
+                      setExpiryInputs((prev) => ({ ...prev, [req.id]: e.target.value }))
                     }
                   />
-                ) : (
-                  <span className="font-mono text-xs text-muted-foreground w-36 text-center">Sin vencimiento</span>
-                )}
-                <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={docInputs[req.id]?.is_illegible ?? false}
-                    onChange={(e) =>
-                      setDocInputs((prev) => ({
-                        ...prev,
-                        [req.id]: { ...prev[req.id], is_illegible: e.target.checked },
-                      }))
-                    }
-                  />
-                  Ilegible
-                </label>
-              </div>
-            ))}
-          </div>
+                </div>
+              ))}
+            </div>
+          )}
 
           {error && (
             <p className="font-mono text-xs text-destructive bg-destructive/10 rounded px-3 py-1.5">{error}</p>
@@ -218,7 +313,7 @@ export default function DriverDetail({ driver, compliance, requirements }: Props
 
           <div className="flex gap-2">
             <button onClick={handleSaveDocs} disabled={isPending} className={btnPrimary}>
-              {isPending ? 'Guardando…' : 'Guardar documentos'}
+              {isPending ? 'Guardando…' : 'Guardar'}
             </button>
             <button onClick={() => setShowDocForm(false)} className={btnSecondary}>
               Cancelar
@@ -232,7 +327,7 @@ export default function DriverDetail({ driver, compliance, requirements }: Props
         <Link href="/buses/drivers" className={btnSecondary}>← Volver</Link>
         {!showDocForm && (
           <button onClick={() => setShowDocForm(true)} className={btnPrimary}>
-            Actualizar documentos
+            Registrar documentos
           </button>
         )}
         {isActive && (
