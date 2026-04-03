@@ -317,6 +317,13 @@ export async function recordVehicleDocumentsAction(
   const { error } = await supabase.from('vehicle_document_events').insert(rows)
   if (error) throw error
 
+  console.log('[notify] vehicle rows:', JSON.stringify(rows.map(r => ({
+    req: r.requirement_id,
+    computed: r.computed_status,
+    prev: r.previous_status,
+    expiry: r.expiry_date,
+  }))))
+
   const newCritico = rows.filter(
     (r) => r.computed_status === 'Crítico' && r.previous_status !== 'Crítico',
   )
