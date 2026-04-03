@@ -1,7 +1,7 @@
 # FNH Modular Monolith — Final System v4.5
 
-> **Last updated:** 2026-03-30
-> **Applied migrations:** 0001_initial.sql, 0002_extend_contracts.sql, 0003_seed_document_requirements.sql, 0004_rls.sql, 0005_storage_policies.sql
+> **Last updated:** 2026-04-02
+> **Applied migrations:** 0001_initial.sql, 0002_extend_contracts.sql, 0003_seed_document_requirements.sql, 0004_rls.sql, 0005_storage_policies.sql, 0006_update_vehicle_requirements.sql, 0007_servitrans_driver_requirements.sql
 > For the authoritative schema file see `Schema.sql.md`.
 
 ---
@@ -242,7 +242,7 @@ See `decisions.md.md` for the full register with rationale. Summary of IDs:
 
 | ID | Decision |
 |---|---|
-| ND-1 | Notification trigger: status transition OR (Alerta/Crítico AND no sent row today) |
+| ND-1 | ~~Notification trigger: status transition OR (Alerta/Crítico AND no sent row today)~~ → **Superseded by ND-24** |
 | ND-2 | ESLint boundaries plugin enforces module isolation at CI |
 | ND-3 | No materialized view; DISTINCT ON + indexes for current status |
 | ND-4 | Excel import is two-phase (parse+confirm+upsert) |
@@ -250,7 +250,7 @@ See `decisions.md.md` for the full register with rationale. Summary of IDs:
 | ND-6 | Driver documents owned by Driver entity, not VerificationPair |
 | ND-7 | verified_at is explicit user input; never auto-set to now() |
 | ND-8 | No uniqueness on (vehicle_id, driver_id, verified_at) |
-| ND-9 | Single driver requirement set; extension path via driver_category |
+| ND-9 | SERVITRANS 16-doc onboarding checklist: 15 binary (`has_expiry=false`) + Licencia C2 (`has_expiry=true`) |
 | ND-10 | contract_audit_logs.user_id is soft reference (no FK); audit records survive user deletion |
 | ND-11 | xlsx replaced with @e965/xlsx fork (CVE: prototype pollution + ReDoS) |
 | ND-12 | contract-gen.js and security.js converted to npm ES modules (CDN globals removed) |
@@ -260,6 +260,15 @@ See `decisions.md.md` for the full register with rationale. Summary of IDs:
 | ND-16 | RLS role checks use `get_my_role() SECURITY DEFINER` to break circular dependency on `public.users` |
 | ND-17 | `public.users` column is `name` (not `full_name`) — diverges from original migration draft |
 | ND-18 | Single accent color (cyan `#38c8d8`), no gradients; `Geist Mono` for machine identifiers; dark mode default via `dark` class on `<html>` |
+| ND-19 | Template deletion: Storage object removed first (best-effort, error swallowed) then DB row deleted |
+| ND-20 | `"lint"` script uses `eslint .` (ESLint CLI flat config) not `next lint` |
+| ND-21 | `ignoreRestSiblings: true` for `no-unused-vars` — handles `({ source, ...e }) => e` destructure-to-omit pattern |
+| ND-22 | `computeStatus(expiryDate, hasExpiry, today)` — `hasExpiry=false` always returns `'Vigente'` |
+| ND-23 | Compliance recomputes from source truth (`expiry_date` + `has_expiry`), not stored `computed_status` |
+| ND-24 | Notification on Crítico transition only; no Alerta emails; no repeated-state emails; fires at record-time (manual entry) and cron (day-over-day) |
+| ND-25 | SERVITRANS checklist is append-only; checked items cannot be unchecked; form only submits newly-checked items |
+| ND-26 | `missingCount > 0` forces entity overall = `'Crítico'`; per-category reqMaps prevent cross-contamination |
+| ND-27 | `deleteDriverAction` cascades in app code: events → pairs → driver (FK RESTRICT, no DB cascade) |
 
 ---
 
@@ -439,11 +448,11 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY   ← sb_publishable_... (browser-safe; JWT
 SUPABASE_SECRET_KEY                    ← sb_secret_... (server-only; bypasses RLS)
 CRON_SECRET                            ← 64-char hex; verified in cron Authorization header
 RESEND_API_KEY
-RESEND_FROM_EMAIL                      ← sender address, e.g. "FNH <notificaciones@yourdomain.com>"  ⚠ PENDING
-NOTIFICATION_RECIPIENT                 ← recipient for all Alerta/Crítico alerts                     ⚠ PENDING
+RESEND_FROM_EMAIL                      ← sender; "FNH <onboarding@resend.dev>" works on Resend free tier; verified domain required otherwise
+NOTIFICATION_RECIPIENT                 ← comma-separated list of recipients for all Crítico-transition alerts (5 addresses configured in production)
 ```
 
-> **PENDING**: `RESEND_FROM_EMAIL` and `NOTIFICATION_RECIPIENT` are not yet configured. `sendDocumentAlert()` will log a warning and skip sending if `NOTIFICATION_RECIPIENT` is empty. Email notifications will be non-functional until these are set.
+> All 7 env vars are set in Vercel production. `notifications.ts` parses `NOTIFICATION_RECIPIENT` as `split(',').map(s => s.trim()).filter(Boolean)` and sends to all addresses.
 
 ---
 
@@ -477,31 +486,25 @@ cron_run():
     new_event_id = db.insert_event(entity, requirement, new_status, previous_status)
     counts.transitions++ if new_status != previous_status
 
-    // Step 5 — CORRECTED notification eligibility check (ND-1)
-    should_notify =
-      (new_status != previous_status AND new_status in ['Alerta', 'Crítico'])
-      OR
-      (new_status in ['Alerta', 'Crítico']
-       AND NOT EXISTS(
-         SELECT 1 FROM notification_log
-         WHERE event_id        = new_event_id
-           AND event_table     = <table>
-           AND alert_type      = new_status
-           AND delivery_status = 'sent'
-           AND notified_at    >= date_trunc('day', now() AT TIME ZONE 'UTC')
-       ))
+    // Step 5 — Notification eligibility check (ND-24, replaces ND-1)
+    // Only fire once: when a doc transitions INTO Crítico for the first time.
+    // No Alerta emails. No repeated emails for persistent Crítico state.
+    transitioned_to_critico = (new_status == 'Crítico' AND previous_status != 'Crítico')
 
-    if should_notify:
-      result = notifications.send(monica_email, new_status, entity, requirement)
+    if transitioned_to_critico:
+      result = notifications.send(recipients, 'Crítico', entity, requirement)
       db.insert_notification_log(
         event_id        = new_event_id,
         event_table     = <table>,
-        alert_type      = new_status,
+        alert_type      = 'Crítico',
         delivery_status = result.status,   // 'sent' | 'failed'
-        failure_reason  = result.error
+        failure_reason  = result.error,
+        retry_count     = 0
       )
       if result.status == 'sent': counts.notified++
       else:                       counts.failed++
+    // NOTE: manual record-time notifications are handled in recordDriverDocumentsAction
+    // and recordVehicleDocumentsAction for born-Crítico documents (same transition rule)
 
   // Step 6 — retry pass for failed/retrying rows (retry_count < 3)
   pending = db.query("""
@@ -543,3 +546,4 @@ cron_run():
 | v4.3 | Applied migration 0003 (document requirements seed); Phase 2 complete (buses module: all CRUD pages, expiry-calculator, compliance-checker, report-builder, StatusBadge); Phase 3 complete (cron route, notifications.ts, vercel.json); nav shell added ((app)/AppNav.tsx + segment layout wrappers); directory structure updated; added ND-14 and ND-15; RESEND_FROM_EMAIL and NOTIFICATION_RECIPIENT marked as pending | Implementation alignment |
 | v4.4 | Phase 4 complete — RLS (0004_rls.sql) + Storage policies (0005_storage_policies.sql) + requireRole() in all mutation Server Actions + ESLint boundaries (eslint.config.mjs, eslint-plugin-boundaries pinned to 5.1.0) + Playwright E2E tests verified 17/17 (auth.setup, smoke, unauthenticated) + cron load-test seed (200 vehicles × reqs); added ND-16 (SECURITY DEFINER get_my_role()); noted public.users.name column divergence | Security hardening |
 | v4.5 | Phase 5 complete — Full UI/UX redesign: OKLCH color tokens (globals.css), single cyan accent `#38c8d8`, near-black dark bg `oklch(0.08)`, dark mode default; Geist + Geist Mono typography (sans for UI, mono for identifiers/dates/hashes); redesigned AppNav, login, dashboard, contracts list/detail/new, buses hub/drivers/vehicles/verification (all list/detail/new pages); consistent labelClass/btnPrimary/btnSecondary/fieldClass patterns; StatusBadge updated to semitransparent borders; added ND-17, ND-18 | UI/UX |
+| v4.6 | Phase 8 complete — Dashboard fleet compliance section (5-query batch, per-category reqMaps, missingCount); `computeStatus` hasExpiry param (ND-22); compliance recomputes from source truth (ND-23); SERVITRANS driver checklist migration 0007 (15 binary + 1 expiry); vehicle requirements cleanup migration 0006; `deleteDriverAction` cascade (ND-27); notification hardening: Crítico-transition-only emails at record-time + cron (ND-24); multi-recipient `NOTIFICATION_RECIPIENT`; middleware excludes `api/`; confirmed working on Vercel; added ND-22 through ND-27 | Feature + correctness | 

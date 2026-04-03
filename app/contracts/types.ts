@@ -1,18 +1,9 @@
-export type JornadaLaboral = 'tiempo_completo' | 'medio_tiempo' | 'prestacion_servicios'
-export type ContractEstado = 'generated' | 'signed'
+// Employee domain types live in (shared)/ — imported for local use (mapEmployeeForContractGen)
+// and re-exported for backwards compatibility with contracts/ code that imports from this file.
+import type { Employee, JornadaLaboral } from '@/app/(shared)/lib/employee-types'
+export type { Employee, JornadaLaboral }
 
-export interface Employee {
-  id: string
-  full_name: string
-  cedula: string
-  cargo: string | null
-  telefono: string | null
-  correo: string | null
-  salario_base: number | null
-  auxilio_transporte: number
-  jornada_laboral: JornadaLaboral
-  created_at: string
-}
+export type ContractEstado = 'generated' | 'signed'
 
 export interface ContractTemplate {
   id: string
@@ -51,33 +42,6 @@ export interface ContractAuditLog {
   action: string
   details: Record<string, unknown>
   created_at: string
-}
-
-// ── Excel importer ─────────────────────────────────────────────────────────
-
-export interface ExcelEmployee {
-  full_name: string
-  cedula: string
-  cargo: string
-  telefono: string
-  correo: string
-  salario_base: number
-  auxilio_transporte: number
-  jornada_laboral: JornadaLaboral
-  source: 'excel'
-}
-
-export interface ExcelImportResult {
-  employees: ExcelEmployee[]
-  warnings: string[]
-  sheetName: string
-  totalRows: number
-}
-
-export interface ImportDiff {
-  new: ExcelEmployee[]
-  updated: { old: Employee; new: ExcelEmployee }[]
-  unchanged: ExcelEmployee[]
 }
 
 // ── App settings ───────────────────────────────────────────────────────────

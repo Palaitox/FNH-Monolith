@@ -6,13 +6,19 @@
  *
  * Two-phase import contract (ND-4):
  *   Phase 1 — parse:   parseExcelEmployees(buffer) → ExcelImportResult
- *   Phase 2 — confirm: Server Action bulkUpsertEmployees(employees) in actions/contracts.ts
+ *   Phase 2 — confirm: confirmEmployeeImportAction(employees) in actions/employees.ts
  *
  * No database write happens before user confirmation.
  */
 
 import * as XLSX from 'xlsx'
-import type { Employee, ExcelEmployee, ExcelImportResult, ImportDiff, JornadaLaboral } from '@/app/contracts/types'
+import type {
+  Employee,
+  ExcelEmployee,
+  ExcelImportResult,
+  ImportDiff,
+  JornadaLaboral,
+} from '@/app/(shared)/lib/employee-types'
 
 export async function parseExcelEmployees(buffer: ArrayBuffer): Promise<ExcelImportResult> {
   const data = new Uint8Array(buffer)
@@ -69,9 +75,6 @@ export async function parseExcelEmployees(buffer: ArrayBuffer): Promise<ExcelImp
     jornadaLaboral: headers.findIndex(
       (h) => h.includes('JORNADA') || h.includes('TIPO'),
     ),
-    fechaInicio: headers.findIndex(
-      (h) => h.includes('FECHA') && h.includes('INICIO'),
-    ),
   }
 
   const employees: ExcelEmployee[] = []
@@ -117,9 +120,7 @@ export async function parseExcelEmployees(buffer: ArrayBuffer): Promise<ExcelImp
     employees.push({
       full_name: nombre.toUpperCase(),
       cedula,
-      telefono: String(
-        col.telefono >= 0 ? (row[col.telefono] ?? '') : '',
-      )
+      telefono: String(col.telefono >= 0 ? (row[col.telefono] ?? '') : '')
         .trim()
         .replace(/\D/g, ''),
       correo: String(col.correo >= 0 ? (row[col.correo] ?? '') : '')
@@ -149,9 +150,7 @@ export async function parseExcelEmployees(buffer: ArrayBuffer): Promise<ExcelImp
  */
 export function diffEmployees(existing: Employee[], incoming: ExcelEmployee[]): ImportDiff {
   const existingMap: Record<string, Employee> = {}
-  existing.forEach((e) => {
-    existingMap[e.cedula] = e
-  })
+  existing.forEach((e) => { existingMap[e.cedula] = e })
 
   const result: ImportDiff = { new: [], updated: [], unchanged: [] }
 

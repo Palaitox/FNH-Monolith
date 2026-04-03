@@ -1,13 +1,13 @@
 # FNH Monolith — Authoritative Database Schema
 
-> **Last updated:** 2026-03-29
-> **Applied migrations:** 0001_initial.sql, 0002_extend_contracts.sql
+> **Last updated:** 2026-04-02
+> **Applied migrations:** 0001_initial.sql, 0002_extend_contracts.sql, 0003_seed_document_requirements.sql, 0004_rls.sql, 0005_storage_policies.sql, 0006_update_vehicle_requirements.sql, 0007_servitrans_driver_requirements.sql
 > **Source of truth:** Supabase Dashboard → Table Editor
 > This file must be kept in sync with every new migration.
 
 ---
 
-## Complete Schema (post-migration-0002)
+## Complete Schema (post-migration-0007)
 
 ```sql
 -- ============================================================
@@ -239,3 +239,8 @@ create index idx_audit_contract
 |---|---|---|
 | `0001_initial.sql` | 2026-03-29 | All base tables + indexes |
 | `0002_extend_contracts.sql` | 2026-03-29 | employees extended (cargo, salary fields); contracts: status→estado + legacy fields; contract_audit_logs + config added |
+| `0003_seed_document_requirements.sql` | 2026-03-30 | Initial driver (16) + vehicle (7) document requirements seeded |
+| `0004_rls.sql` | 2026-03-30 | RLS enabled on all 13 tables; `get_my_role()` SECURITY DEFINER function (ND-16) |
+| `0005_storage_policies.sql` | 2026-03-30 | `contracts` Storage bucket; read all-auth; write/delete scoped by role |
+| `0006_update_vehicle_requirements.sql` | 2026-04-01 | Hard DELETE: RCEC events + requirement, Tarjeta de propiedad events + requirement; RENAME RCC → "Seguro obligatorio (SOAT)"; INSERT "Certificado de revisión preventiva" |
+| `0007_servitrans_driver_requirements.sql` | 2026-04-01 | Hard replace all driver requirements with SERVITRANS 16-item onboarding checklist: 15 `has_expiry=false` binary items + 1 `has_expiry=true` (Licencia de conducción C2) |

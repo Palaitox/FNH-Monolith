@@ -9,8 +9,6 @@ import {
   deleteContract as dbDeleteContract,
   getEmployees,
   getEmployee,
-  upsertEmployee as dbUpsertEmployee,
-  bulkUpsertEmployees as dbBulkUpsertEmployees,
   getContractTemplates,
   createContractTemplate as dbCreateContractTemplate,
   deleteContractTemplate as dbDeleteContractTemplate,
@@ -23,7 +21,6 @@ import type {
   ContractWithEmployee,
   ContractTemplate,
   Employee,
-  ExcelEmployee,
   AppSettings,
 } from '@/app/contracts/types'
 import { revalidatePath } from 'next/cache'
@@ -107,16 +104,6 @@ export async function attachSignedPdfAction(
   revalidatePath('/contracts')
 }
 
-// ── Employee mutations ─────────────────────────────────────────────────────
-
-export async function upsertEmployeeAction(emp: Omit<Employee, 'id' | 'created_at'>) {
-  await requireRole('coordinator')
-  const supabase = await createClient()
-  const result = await dbUpsertEmployee(supabase, emp)
-  revalidatePath('/contracts')
-  return result
-}
-
 // ── Template mutations ─────────────────────────────────────────────────────
 
 export async function uploadTemplateAction(
@@ -139,21 +126,3 @@ export async function deleteTemplateAction(id: string, storagePath: string): Pro
   revalidatePath('/contracts/templates')
 }
 
-// ── Excel import ───────────────────────────────────────────────────────────
-
-/**
- * Phase 2 of Excel import (ND-4): receives already-parsed, user-confirmed data.
- * No DB write happens before this action is called.
- */
-export async function confirmExcelImportAction(
-  employees: Omit<ExcelEmployee, 'source'>[],
-): Promise<{ created: number; updated: number }> {
-  await requireRole('coordinator')
-  const supabase = await createClient()
-  const stats = await dbBulkUpsertEmployees(
-    supabase,
-    employees.map((e) => ({ ...e, source: 'excel' as const })),
-  )
-  revalidatePath('/contracts')
-  return stats
-}

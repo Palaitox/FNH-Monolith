@@ -14,12 +14,6 @@ export default async function ContractsPage() {
         </div>
         <div className="flex gap-2">
           <Link
-            href="/contracts/import"
-            className="rounded-md border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
-          >
-            Importar empleados
-          </Link>
-          <Link
             href="/contracts/templates"
             className="rounded-md border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
           >

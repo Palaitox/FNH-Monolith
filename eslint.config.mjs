@@ -33,6 +33,10 @@ export default [
           pattern: 'app/buses/**/*',
         },
         {
+          type: 'employees',
+          pattern: 'app/employees/**/*',
+        },
+        {
           type: 'dashboard',
           pattern: 'app/dashboard/**/*',
         },
@@ -63,17 +67,23 @@ export default [
         {
           default: 'allow',
           rules: [
-            // contracts/* must not import from buses/*
+            // contracts/* must not import from buses/* or employees/*
             {
               from: ['contracts'],
-              disallow: ['buses'],
-              message: 'contracts/ must not import from buses/ — use (shared)/ for cross-module code',
+              disallow: ['buses', 'employees'],
+              message: 'contracts/ must not import from other modules — use (shared)/ for cross-module code',
             },
-            // buses/* must not import from contracts/*
+            // buses/* must not import from contracts/* or employees/*
             {
               from: ['buses'],
-              disallow: ['contracts'],
-              message: 'buses/ must not import from contracts/ — use (shared)/ for cross-module code',
+              disallow: ['contracts', 'employees'],
+              message: 'buses/ must not import from other modules — use (shared)/ for cross-module code',
+            },
+            // employees/* must not import from contracts/* or buses/*
+            {
+              from: ['employees'],
+              disallow: ['contracts', 'buses'],
+              message: 'employees/ must not import from other modules — use (shared)/ for cross-module code',
             },
           ],
         },

@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 const NAV_LINKS = [
   { href: '/dashboard', label: 'Panel' },
   { href: '/contracts', label: 'Contratos' },
+  { href: '/employees', label: 'Empleados' },
   { href: '/buses', label: 'Buses' },
 ]
 

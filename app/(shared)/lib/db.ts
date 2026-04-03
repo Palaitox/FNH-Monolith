@@ -12,8 +12,8 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import type { Employee } from '@/app/(shared)/lib/employee-types'
 import type {
-  Employee,
   Contract,
   ContractWithEmployee,
   ContractTemplate,
@@ -27,6 +27,7 @@ export async function getEmployees(supabase: SupabaseClient): Promise<Employee[]
   const { data, error } = await supabase
     .from('employees')
     .select('*')
+    .is('deactivated_at', null)
     .order('full_name', { ascending: true })
 
   if (error) {
@@ -34,6 +35,40 @@ export async function getEmployees(supabase: SupabaseClient): Promise<Employee[]
     return []
   }
   return data ?? []
+}
+
+export async function getAllEmployees(supabase: SupabaseClient): Promise<Employee[]> {
+  const { data, error } = await supabase
+    .from('employees')
+    .select('*')
+    .order('full_name', { ascending: true })
+
+  if (error) {
+    console.error('Error fetching all employees:', error)
+    return []
+  }
+  return data ?? []
+}
+
+export async function getEmployeeContracts(
+  supabase: SupabaseClient,
+  employeeId: string,
+): Promise<ContractWithEmployee[]> {
+  const { data, error } = await supabase
+    .from('contracts')
+    .select(
+      'id, employee_id, template_id, contract_number, tipo_contrato, fecha_inicio, ' +
+      'fecha_terminacion, forma_pago, estado, pdf_hash, pdf_filename, pdf_path, ' +
+      'docx_path, generated_at, signed_at, employees(full_name)',
+    )
+    .eq('employee_id', employeeId)
+    .order('generated_at', { ascending: false })
+
+  if (error) {
+    console.error('Error fetching employee contracts:', error)
+    return []
+  }
+  return (data ?? []) as unknown as ContractWithEmployee[]
 }
 
 export async function getEmployee(
@@ -100,16 +135,40 @@ export async function upsertEmployee(
 
 export async function bulkUpsertEmployees(
   supabase: SupabaseClient,
-  employees: Omit<Employee, 'id' | 'created_at'>[],
+  employees: Omit<Employee, 'id' | 'created_at' | 'deactivated_at'>[],
 ): Promise<{ created: number; updated: number }> {
-  let created = 0
-  let updated = 0
-  for (const emp of employees) {
-    const existing = await getEmployeeByCedula(supabase, emp.cedula)
-    if (existing) updated++
-    else created++
-    await upsertEmployee(supabase, emp)
-  }
+  if (employees.length === 0) return { created: 0, updated: 0 }
+
+  const cedulas = employees.map((e) => String(e.cedula))
+
+  // 1 query: find which cedulas already exist
+  const { data: existing } = await supabase
+    .from('employees')
+    .select('cedula')
+    .in('cedula', cedulas)
+
+  const existingSet = new Set((existing ?? []).map((r: { cedula: string }) => r.cedula))
+  const created = employees.filter((e) => !existingSet.has(String(e.cedula))).length
+  const updated = employees.length - created
+
+  // 1 query: bulk upsert all rows at once
+  const payload = employees.map((emp) => ({
+    full_name: emp.full_name,
+    cedula: String(emp.cedula),
+    cargo: emp.cargo ?? null,
+    telefono: emp.telefono ?? null,
+    correo: emp.correo ?? null,
+    salario_base: emp.salario_base ?? null,
+    auxilio_transporte: emp.auxilio_transporte ?? 0,
+    jornada_laboral: emp.jornada_laboral ?? 'tiempo_completo',
+  }))
+
+  const { error } = await supabase
+    .from('employees')
+    .upsert(payload, { onConflict: 'cedula' })
+
+  if (error) throw error
+
   return { created, updated }
 }
 

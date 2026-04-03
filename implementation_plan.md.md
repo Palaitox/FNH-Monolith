@@ -1,7 +1,7 @@
 # FNH Monolith — Implementation Plan
 
-> **Last updated:** 2026-03-31
-> **Status:** Phase 0 ✅ complete | Phase 1 ✅ complete | Phase 2 ✅ complete | Phase 3 ✅ complete | Phase 4 ✅ complete | Phase 5 ✅ complete | Phase 6 ✅ complete | Phase 7 ✅ complete
+> **Last updated:** 2026-04-02
+> **Status:** Phase 0 ✅ complete | Phase 1 ✅ complete | Phase 2 ✅ complete | Phase 3 ✅ complete | Phase 4 ✅ complete | Phase 5 ✅ complete | Phase 6 ✅ complete | Phase 7 ✅ complete | Phase 8 ✅ complete
 
 ## Stack
 
@@ -64,6 +64,7 @@ app/
 │   ├── lib/
 │   │   ├── expiry-calculator.ts
 │   │   ├── compliance-checker.ts
+│   │   ├── fleet-compliance.ts ← 5-query batch aggregation for fleet-wide summary
 │   │   └── report-builder.ts   ← executes Query A + Query B (DISTINCT ON replicated in JS, ND-14)
 │   ├── drivers/
 │   │   ├── new/page.tsx
@@ -102,10 +103,11 @@ app/
 | `security.js` | Browser-only: SHA-256 compute and verify via `window.crypto.subtle` |
 | `excel-importer.ts` | Parse `.xlsx` (pure, no DOM); validate; return `ExcelImportResult` |
 | `verify-integrity.ts` | Server Action: download PDF from Storage, re-compute SHA-256 via `node:crypto`, compare to `contracts.pdf_hash` |
-| `expiry-calculator.ts` | Pure: `(expiry_date | null, today) → status` |
-| `compliance-checker.ts` | Aggregate current document statuses for a VerificationPair |
+| `expiry-calculator.ts` | Pure: `(expiry_date, hasExpiry, today) → status`; `hasExpiry=false` always returns `'Vigente'` (ND-22) |
+| `compliance-checker.ts` | Aggregate current document statuses for an entity; recomputes from source truth via `computeStatus()` (ND-23) |
+| `fleet-compliance.ts` | 5-query batch: active drivers, active vehicles, driver reqs, vehicle reqs, all events; in-memory aggregation; per-category reqMaps (ND-26) |
 | `report-builder.ts` | Execute Query A + B; assemble `GA_F_094_Report` |
-| `api/cron/route.ts` | Daily batch: recalculate, notify, log |
+| `api/cron/route.ts` | Daily batch: recalculate, detect Crítico transitions, notify, log; retry pass for failed rows |
 | `(app)/AppNav.tsx` | Navigation shell (Panel / Contratos / Buses + sign out); 'use client'; active route via usePathname |
 | `dashboard/layout.tsx`, `contracts/layout.tsx`, `buses/layout.tsx` | Thin per-segment wrappers that inject AppNav into pages outside the `(app)/` route group |
 | `(shared)/lib/auth.ts` `requireRole()` | Throws if caller's role < minimum; called at top of every mutation Server Action |
@@ -217,6 +219,57 @@ app/
 - **UX navigation fixes**: all list pages (`buses/drivers`, `buses/vehicles`, `buses/verification`) now have `← Buses` breadcrumb link above heading
 - **Phase 5 style consistency pass**: list pages (`buses/drivers`, `buses/vehicles`, `buses/verification`, `buses/page`, `contracts/page`) unified to Phase 5 standards — `max-w-5xl mx-auto`, `border-border bg-card` tables, `text-xs uppercase tracking-wide bg-muted/40` headers, `hover:bg-muted/20` rows, pill status chips with semitransparent color, "Ver →" `hover:text-primary`
 
+### Phase 8 — Dashboard, Fleet Compliance, SERVITRANS Requirements, Notification Hardening ✅
+
+#### Dashboard rebuild
+- `app/dashboard/page.tsx` rebuilt with two sections: Contracts stats (total / signed / pending) + Fleet compliance
+- Fleet section shows 4 status-count cards colored per status (Vigente/Seguimiento/Alerta/Crítico)
+- `needsAttention` list: each entry shows entity name + `urgentDocs` (worst requirement name) + `missingCount` explanation ("X docs sin registrar")
+- Edge cases: all-green message when fleet is compliant; empty-fleet message when no active entities
+
+#### Fleet compliance engine (`fleet-compliance.ts`)
+- `getFleetCompliance(supabase)` — 5 parallel queries: active drivers, active vehicles, driver requirements, vehicle requirements, all events
+- Per-category reqMaps (`driverReqMap` / `vehicleReqMap`) — critical for correct `missingCount` per entity type (ND-26)
+- `missingCount = reqMap.size − seen.size` (requirements with at least one event row)
+- `overall = missingCount > 0 ? 'Crítico' : worstStatus(allStatuses)` (ND-26)
+- Recomputes status from source truth via `computeStatus(ev.expiry_date, req.has_expiry)` (ND-23)
+- Exported as `getFleetComplianceAction()` in `buses.ts`
+
+#### `computeStatus` signature fix (ND-22)
+- Added `hasExpiry: boolean` second parameter to `expiry-calculator.ts`
+- `has_expiry=false` → returns `'Vigente'` immediately; null `expiry_date` for expiry docs still returns `'Crítico'`
+- `has_expiry` threaded through: compliance-checker, fleet-compliance, both record actions, cron handler
+
+#### Compliance recompute from source truth (ND-23)
+- `compliance-checker.ts` no longer reads `ev.computed_status` — recomputes via `computeStatus(ev.expiry_date, req.has_expiry)` live
+- `fleet-compliance.ts` follows the same pattern
+- Fixes: stale stored status from before ND-22 was introduced now auto-corrects on next compliance fetch
+
+#### SERVITRANS driver requirements (migration 0007)
+- `supabase/migrations/0007_servitrans_driver_requirements.sql` — hard replace all driver requirements
+- 15 binary checklist items (`has_expiry=false`): Paz y salvo EPS, Afiliación ARL, Carta de presentación SERVITRANS, Formato hoja de vida, Fotocopia cédula, Fotocopia libreta militar, Antecedentes judiciales, Antecedentes disciplinarios, Antecedentes fiscales, Récord de accidentalidad, Aptitud psicofísica, Certificado retiro fuerzas militares, Certificado afiliación fondo pensiones, Certificado SIMIT, Curso 8 horas SENA
+- 1 dated document (`has_expiry=true`): Licencia de conducción C2 (valid ≤ 30 days before expiry, Crítico at 0)
+- `DriverDetail.tsx` rewritten: progress ring SVG, separate `checked`/`expiryInputs` state, pre-checked + disabled already-recorded items, only newly-checked items submitted (ND-25)
+
+#### Vehicle requirements cleanup (migration 0006)
+- `supabase/migrations/0006_update_vehicle_requirements.sql` — hard DELETE events + requirements for RCEC and Tarjeta de propiedad
+- Renamed RCC → "Seguro obligatorio (SOAT)", Licencia de tránsito → kept; added "Certificado de revisión preventiva"
+- `VehicleDetail.tsx`: added `DaysChip` component, expiry date + days-remaining display, `has_expiry` threaded into form submission
+
+#### Hard delete with cascade (ND-27)
+- `deleteDriverAction(id)`: deletes `driver_document_events` → `verification_pairs` → `drivers` in sequence
+- `getDriverById` / `getVehicleById` changed from `.single()` to `.maybeSingle()` to survive post-delete navigation
+- Two-click confirmation in `DriverDetail.tsx` UI before calling action
+
+#### Notification hardening (ND-24)
+- Removed `checkShouldNotify()` function from `cron/route.ts`; replaced with `transitionedToCritico = newStatus === 'Crítico' && previousStatus !== 'Crítico'`
+- Added immediate notification in `recordDriverDocumentsAction` / `recordVehicleDocumentsAction` for born-Crítico docs (manual record path)
+- Cron now handles day-over-day transitions only; no Alerta emails from either path
+- `NOTIFICATION_RECIPIENT` expanded to 5 comma-separated addresses
+- `RESEND_FROM_EMAIL` changed to `"FNH <onboarding@resend.dev>"` (Resend free-tier verified sender)
+- `middleware.ts` matcher updated to exclude `api/` routes (cron was receiving redirect to `/auth/login`)
+- Confirmed working on Vercel URL (localhost uses `.env.local` which doesn't have real Resend credentials in dev)
+
 ## Rescued Assets from Existing Codebase
 
 | File | Destination | Notes |
@@ -233,8 +286,8 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY   ← sb_publishable_... (JWT disabled)
 SUPABASE_SECRET_KEY                    ← sb_secret_... (replaces service role key)
 CRON_SECRET                            ← 64-char hex; verified in cron Authorization header
 RESEND_API_KEY
-RESEND_FROM_EMAIL                      ← e.g. "FNH <notificaciones@yourdomain.com>"
-NOTIFICATION_RECIPIENT                 ← recipient email for all Alerta/Crítico alerts
+RESEND_FROM_EMAIL                      ← sender; use "FNH <onboarding@resend.dev>" on Resend free tier (unverified domains rejected)
+NOTIFICATION_RECIPIENT                 ← comma-separated list of recipients for all Crítico-transition alerts
 ```
 
 > **Note on key naming**: Supabase projects with JWT disabled use `PUBLISHABLE_KEY` (browser-safe, no JWT signing) and `SECRET_KEY` (server-only, bypasses RLS) instead of the legacy `ANON_KEY` / `SERVICE_ROLE_KEY`. The `createSupabaseServiceClient()` factory uses `SUPABASE_SECRET_KEY` and is only called from Server Actions or Route Handlers.
