@@ -80,6 +80,23 @@ export async function deactivateDriverAction(id: string): Promise<void> {
   revalidatePath('/buses/drivers')
 }
 
+export async function deleteDriverAction(id: string): Promise<void> {
+  await requireRole('coordinator')
+  const supabase = await createClient()
+
+  // Delete dependents first to satisfy FK constraints
+  const [evErr, pairErr] = await Promise.all([
+    supabase.from('driver_document_events').delete().eq('driver_id', id).then(r => r.error),
+    supabase.from('verification_pairs').delete().eq('driver_id', id).then(r => r.error),
+  ])
+  if (evErr) throw evErr
+  if (pairErr) throw pairErr
+
+  const { error } = await supabase.from('drivers').delete().eq('id', id)
+  if (error) throw error
+  revalidatePath('/buses/drivers')
+}
+
 // ── Vehicles ───────────────────────────────────────────────────────────────
 
 export async function listVehicles(): Promise<Vehicle[]> {

@@ -8,6 +8,7 @@ import { daysUntilExpiry } from '@/app/buses/lib/expiry-calculator'
 import {
   recordDriverDocumentsAction,
   deactivateDriverAction,
+  deleteDriverAction,
 } from '@/app/buses/actions/buses'
 import type {
   Driver,
@@ -47,6 +48,7 @@ export default function DriverDetail({ driver, compliance, requirements }: Props
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [deactivateConfirm, setDeactivateConfirm] = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState(false)
   const [showDocForm, setShowDocForm] = useState(false)
 
   const [docInputs, setDocInputs] = useState<
@@ -86,6 +88,14 @@ export default function DriverDetail({ driver, compliance, requirements }: Props
     if (!deactivateConfirm) { setDeactivateConfirm(true); return }
     startTransition(async () => {
       await deactivateDriverAction(driver.id)
+      router.push('/buses/drivers')
+    })
+  }
+
+  function handleDelete() {
+    if (!deleteConfirm) { setDeleteConfirm(true); return }
+    startTransition(async () => {
+      await deleteDriverAction(driver.id)
       router.push('/buses/drivers')
     })
   }
@@ -240,6 +250,22 @@ export default function DriverDetail({ driver, compliance, requirements }: Props
         )}
         {deactivateConfirm && (
           <button onClick={() => setDeactivateConfirm(false)} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            Cancelar
+          </button>
+        )}
+        <button
+          onClick={handleDelete}
+          disabled={isPending}
+          className={`rounded-md px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50 ${
+            deleteConfirm
+              ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90'
+              : 'border border-destructive/40 text-destructive/70 hover:border-destructive hover:text-destructive'
+          }`}
+        >
+          {deleteConfirm ? 'Confirmar eliminación permanente' : 'Eliminar conductor'}
+        </button>
+        {deleteConfirm && (
+          <button onClick={() => setDeleteConfirm(false)} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
             Cancelar
           </button>
         )}
