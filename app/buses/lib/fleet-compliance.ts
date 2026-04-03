@@ -226,12 +226,15 @@ function buildEntitySummary(
 
   const missingCount = reqMap.size - seen.size
 
+  // Missing required documents = not compliant, regardless of recorded statuses
+  const overall: DocumentStatus = missingCount > 0 ? 'Crítico' : worstStatus(allStatuses)
+
   return {
     id,
     name,
     entity_type: entityType,
     href: entityType === 'driver' ? `/buses/drivers/${id}` : `/buses/vehicles/${id}`,
-    overall: worstStatus(allStatuses),
+    overall,
     counts,
     urgentDocs,
     missingCount,
