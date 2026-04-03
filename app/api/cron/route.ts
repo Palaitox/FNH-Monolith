@@ -86,7 +86,7 @@ export async function GET(request: NextRequest) {
         // (cron recalculates existing records; initial recording is manual)
         if (!latest) continue
 
-        const newStatus = computeStatus(expiryDate, today)
+        const newStatus = computeStatus(expiryDate, req.has_expiry, today)
         if (newStatus !== previousStatus) counts.transitions++
 
         // Insert new event row unconditionally
@@ -163,7 +163,7 @@ export async function GET(request: NextRequest) {
 
         if (!latest) continue
 
-        const newStatus = computeStatus(expiryDate, today)
+        const newStatus = computeStatus(expiryDate, req.has_expiry, today)
         if (newStatus !== previousStatus) counts.transitions++
 
         const { data: newEvent, error: insertErr } = await supabase

@@ -53,6 +53,7 @@ export default function DriverDetail({ driver, compliance, requirements }: Props
       requirement_id: r.id,
       expiry_date: docInputs[r.id]?.expiry_date || null,
       is_illegible: docInputs[r.id]?.is_illegible ?? false,
+      has_expiry: r.has_expiry,
     }))
     startTransition(async () => {
       try {

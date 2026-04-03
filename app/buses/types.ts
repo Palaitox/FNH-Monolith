@@ -148,4 +148,5 @@ export interface RecordDocumentInput {
   requirement_id: string
   expiry_date: string | null
   is_illegible: boolean
+  has_expiry: boolean
 }

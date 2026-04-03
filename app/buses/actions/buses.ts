@@ -219,7 +219,7 @@ export async function recordDriverDocumentsAction(
   const previousStatuses = await getPreviousDriverStatuses(supabase, driverId)
 
   const rows = documents.map((doc) => {
-    const computed_status = computeStatus(doc.expiry_date, today)
+    const computed_status = computeStatus(doc.expiry_date, doc.has_expiry, today)
     const previous_status = previousStatuses.get(doc.requirement_id) ?? null
     return {
       driver_id: driverId,
@@ -251,7 +251,7 @@ export async function recordVehicleDocumentsAction(
   const previousStatuses = await getPreviousVehicleStatuses(supabase, vehicleId)
 
   const rows = documents.map((doc) => {
-    const computed_status = computeStatus(doc.expiry_date, today)
+    const computed_status = computeStatus(doc.expiry_date, doc.has_expiry, today)
     const previous_status = previousStatuses.get(doc.requirement_id) ?? null
     return {
       vehicle_id: vehicleId,

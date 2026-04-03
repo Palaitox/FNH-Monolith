@@ -2,17 +2,19 @@ import type { DocumentStatus } from '@/app/buses/types'
 
 /**
  * Thresholds (from implementation plan):
- *   Vigente     > 90 days remaining
+ *   Vigente     > 90 days remaining, OR document has no expiry (has_expiry = false)
  *   Seguimiento 61–90 days remaining
  *   Alerta      22–60 days remaining
- *   Crítico     ≤ 21 days OR no expiry date on record
+ *   Crítico     ≤ 21 days, already expired, or expiry expected but not recorded
  *
  * Pure function — no I/O, no side effects.
  */
 export function computeStatus(
   expiryDate: string | null,
+  hasExpiry: boolean,
   today: Date = new Date(),
 ): DocumentStatus {
+  if (!hasExpiry) return 'Vigente'
   if (!expiryDate) return 'Crítico'
 
   const expiry = new Date(expiryDate + 'T00:00:00')
