@@ -7,6 +7,7 @@ import { getDriverCompliance, getVehicleCompliance } from '@/app/buses/lib/compl
 import { buildGA_F_094_Report } from '@/app/buses/lib/report-builder'
 import { computeStatus } from '@/app/buses/lib/expiry-calculator'
 import { getFleetCompliance } from '@/app/buses/lib/fleet-compliance'
+import { sendDocumentAlert } from '@/app/(shared)/lib/notifications'
 import type {
   Driver,
   Vehicle,
@@ -249,6 +250,33 @@ export async function recordDriverDocumentsAction(
 
   const { error } = await supabase.from('driver_document_events').insert(rows)
   if (error) throw error
+
+  // Notify for any document that just transitioned into Crítico
+  const newCritico = rows.filter(
+    (r) => r.computed_status === 'Crítico' && r.previous_status !== 'Crítico',
+  )
+  if (newCritico.length > 0) {
+    const [driverRes, reqRes] = await Promise.all([
+      supabase.from('drivers').select('full_name').eq('id', driverId).single(),
+      supabase.from('document_requirements')
+        .select('id, name')
+        .in('id', newCritico.map((r) => r.requirement_id)),
+    ])
+    const driverName = driverRes.data?.full_name ?? driverId
+    const reqNames = new Map((reqRes.data ?? []).map((r) => [r.id, r.name]))
+    await Promise.all(
+      newCritico.map((r) =>
+        sendDocumentAlert({
+          entityType: 'driver',
+          entityName: driverName,
+          requirementName: reqNames.get(r.requirement_id) ?? r.requirement_id,
+          newStatus: 'Crítico',
+          expiryDate: r.expiry_date,
+        }),
+      ),
+    )
+  }
+
   revalidatePath(`/buses/drivers/${driverId}`)
 }
 
@@ -281,6 +309,32 @@ export async function recordVehicleDocumentsAction(
 
   const { error } = await supabase.from('vehicle_document_events').insert(rows)
   if (error) throw error
+
+  const newCritico = rows.filter(
+    (r) => r.computed_status === 'Crítico' && r.previous_status !== 'Crítico',
+  )
+  if (newCritico.length > 0) {
+    const [vehicleRes, reqRes] = await Promise.all([
+      supabase.from('vehicles').select('plate').eq('id', vehicleId).single(),
+      supabase.from('document_requirements')
+        .select('id, name')
+        .in('id', newCritico.map((r) => r.requirement_id)),
+    ])
+    const vehiclePlate = vehicleRes.data?.plate ?? vehicleId
+    const reqNames = new Map((reqRes.data ?? []).map((r) => [r.id, r.name]))
+    await Promise.all(
+      newCritico.map((r) =>
+        sendDocumentAlert({
+          entityType: 'vehicle',
+          entityName: vehiclePlate,
+          requirementName: reqNames.get(r.requirement_id) ?? r.requirement_id,
+          newStatus: 'Crítico',
+          expiryDate: r.expiry_date,
+        }),
+      ),
+    )
+  }
+
   revalidatePath(`/buses/vehicles/${vehicleId}`)
 }
 
