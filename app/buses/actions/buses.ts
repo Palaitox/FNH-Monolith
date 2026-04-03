@@ -277,9 +277,7 @@ export async function recordDriverDocumentsAction(
     )
     results.forEach((res, i) => {
       if (res.status === 'failed') {
-        console.error(`[notify] driver alert failed for req ${newCritico[i].requirement_id}:`, res.error)
-      } else {
-        console.log(`[notify] driver alert sent for req ${newCritico[i].requirement_id}`)
+        console.error(`notifications: driver alert failed — ${res.error}`)
       }
     })
   }
@@ -317,13 +315,6 @@ export async function recordVehicleDocumentsAction(
   const { error } = await supabase.from('vehicle_document_events').insert(rows)
   if (error) throw error
 
-  console.log('[notify] vehicle rows:', JSON.stringify(rows.map(r => ({
-    req: r.requirement_id,
-    computed: r.computed_status,
-    prev: r.previous_status,
-    expiry: r.expiry_date,
-  }))))
-
   const newCritico = rows.filter(
     (r) => r.computed_status === 'Crítico' && r.previous_status !== 'Crítico',
   )
@@ -349,9 +340,7 @@ export async function recordVehicleDocumentsAction(
     )
     results.forEach((res, i) => {
       if (res.status === 'failed') {
-        console.error(`[notify] vehicle alert failed for req ${newCritico[i].requirement_id}:`, res.error)
-      } else {
-        console.log(`[notify] vehicle alert sent for req ${newCritico[i].requirement_id}`)
+        console.error(`notifications: vehicle alert failed — ${res.error}`)
       }
     })
   }
