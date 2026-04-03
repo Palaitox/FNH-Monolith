@@ -7,7 +7,7 @@
  * Required env vars:
  *   RESEND_API_KEY           — Resend API key
  *   RESEND_FROM_EMAIL        — Sender address (e.g. "FNH <notificaciones@fnh.org>")
- *   NOTIFICATION_RECIPIENT   — Recipient address for all alerts
+ *   NOTIFICATION_RECIPIENT   — Comma-separated recipient addresses for all alerts
  */
 
 import { Resend } from 'resend'
@@ -27,12 +27,15 @@ export interface NotificationPayload {
 }
 
 const FROM = process.env.RESEND_FROM_EMAIL ?? 'FNH <onboarding@resend.dev>'
-const TO   = process.env.NOTIFICATION_RECIPIENT ?? ''
+const TO: string[] = (process.env.NOTIFICATION_RECIPIENT ?? '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean)
 
 export async function sendDocumentAlert(
   payload: NotificationPayload,
 ): Promise<NotificationResult> {
-  if (!TO) {
+  if (TO.length === 0) {
     console.warn('notifications: NOTIFICATION_RECIPIENT not set — skipping email')
     return { status: 'failed', error: 'NOTIFICATION_RECIPIENT not configured' }
   }
