@@ -26,7 +26,7 @@ export interface NotificationPayload {
   expiryDate: string | null
 }
 
-const FROM = process.env.RESEND_FROM_EMAIL ?? 'FNH <onboarding@resend.dev>'
+const FROM = process.env.RESEND_FROM_EMAIL ?? 'onboarding@resend.dev'
 const TO: string[] = (process.env.NOTIFICATION_RECIPIENT ?? '')
   .split(',')
   .map((s) => s.trim())

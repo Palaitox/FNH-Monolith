@@ -3,15 +3,17 @@
  *
  * Vercel Cron handler — runs daily at 0 11 * * * UTC (06:00 Colombia).
  *
- * Algorithm (ND-1 corrected — see systemDesignFinal.md § 5):
- *   For each active (entity × requirement):
- *     1. Compute new_status via expiry-calculator
- *     2. Fetch previous_status from latest event row
- *     3. Insert new event row unconditionally
- *     4. Check should_notify (ND-1 two-branch condition)
- *     5. If should_notify: send email → insert notification_log
- *   Then retry pass for failed/retrying rows (retry_count < 3).
+ * Algorithm:
+ *   For each active (entity × expiry requirement):
+ *     1. Fetch latest recorded event (skip if never recorded, skip if has_expiry=false)
+ *     2. Recompute status from expiry_date
+ *     3. Insert new daily snapshot event
+ *     4. If status just transitioned into Crítico → send email once
+ *   Then retry pass for previously failed notifications (retry_count < 3).
  *   Finally write structured system_logs entry.
+ *
+ * Notification rule: one email per Crítico transition. No repeated alerts
+ * for persistent Crítico state — the dashboard surfaces those instead.
  *
  * Security: header Authorization: Bearer <CRON_SECRET>
  */
@@ -67,9 +69,11 @@ export async function GET(request: NextRequest) {
     // ── Step 2: process each driver × requirement ───────────────────────
     for (const driver of activeDrivers ?? []) {
       for (const req of driverRequirements ?? []) {
+        // Checklist docs (no expiry) never change status over time — skip
+        if (!req.has_expiry) continue
+
         counts.processed++
 
-        // Fetch latest event for this driver × requirement
         const { data: latestEvents } = await supabase
           .from('driver_document_events')
           .select('id, expiry_date, computed_status')
@@ -82,14 +86,15 @@ export async function GET(request: NextRequest) {
         const previousStatus = (latest?.computed_status ?? null) as DocumentStatus | null
         const expiryDate = latest?.expiry_date ?? null
 
-        // Only process requirements that have been recorded at least once
-        // (cron recalculates existing records; initial recording is manual)
+        // Only process requirements recorded at least once
         if (!latest) continue
 
         const newStatus = computeStatus(expiryDate, req.has_expiry, today)
+        const transitionedToCritico = newStatus === 'Crítico' && previousStatus !== 'Crítico'
+
         if (newStatus !== previousStatus) counts.transitions++
 
-        // Insert new event row unconditionally
+        // Insert new event row unconditionally (daily snapshot)
         const { data: newEvent, error: insertErr } = await supabase
           .from('driver_document_events')
           .insert({
@@ -99,7 +104,7 @@ export async function GET(request: NextRequest) {
             is_illegible: false,
             computed_status: newStatus,
             previous_status: previousStatus,
-            recorded_by: null, // cron-written
+            recorded_by: null,
           })
           .select('id')
           .single()
@@ -109,37 +114,27 @@ export async function GET(request: NextRequest) {
           continue
         }
 
-        // ── ND-1 corrected notification check ─────────────────────────
-        if (newStatus === 'Alerta' || newStatus === 'Crítico') {
-          const shouldNotify = await checkShouldNotify(
-            supabase,
-            newEvent.id,
-            'driver_document_events',
+        // Notify only on transition into Crítico
+        if (transitionedToCritico) {
+          const result = await sendDocumentAlert({
+            entityType: 'driver',
+            entityName: driver.full_name,
+            requirementName: req.name,
             newStatus,
-            newStatus !== previousStatus,
-          )
+            expiryDate,
+          })
 
-          if (shouldNotify) {
-            const result = await sendDocumentAlert({
-              entityType: 'driver',
-              entityName: driver.full_name,
-              requirementName: req.name,
-              newStatus,
-              expiryDate,
-            })
+          await supabase.from('notification_log').insert({
+            event_id: newEvent.id,
+            event_table: 'driver_document_events',
+            alert_type: newStatus,
+            delivery_status: result.status,
+            failure_reason: result.error ?? null,
+            retry_count: 0,
+          })
 
-            await supabase.from('notification_log').insert({
-              event_id: newEvent.id,
-              event_table: 'driver_document_events',
-              alert_type: newStatus,
-              delivery_status: result.status,
-              failure_reason: result.error ?? null,
-              retry_count: 0,
-            })
-
-            if (result.status === 'sent') counts.notified++
-            else counts.failed++
-          }
+          if (result.status === 'sent') counts.notified++
+          else counts.failed++
         }
       }
     }
@@ -147,6 +142,8 @@ export async function GET(request: NextRequest) {
     // ── Step 3: process each vehicle × requirement ──────────────────────
     for (const vehicle of activeVehicles ?? []) {
       for (const req of vehicleRequirements ?? []) {
+        if (!req.has_expiry) continue
+
         counts.processed++
 
         const { data: latestEvents } = await supabase
@@ -164,6 +161,8 @@ export async function GET(request: NextRequest) {
         if (!latest) continue
 
         const newStatus = computeStatus(expiryDate, req.has_expiry, today)
+        const transitionedToCritico = newStatus === 'Crítico' && previousStatus !== 'Crítico'
+
         if (newStatus !== previousStatus) counts.transitions++
 
         const { data: newEvent, error: insertErr } = await supabase
@@ -185,36 +184,26 @@ export async function GET(request: NextRequest) {
           continue
         }
 
-        if (newStatus === 'Alerta' || newStatus === 'Crítico') {
-          const shouldNotify = await checkShouldNotify(
-            supabase,
-            newEvent.id,
-            'vehicle_document_events',
+        if (transitionedToCritico) {
+          const result = await sendDocumentAlert({
+            entityType: 'vehicle',
+            entityName: vehicle.plate,
+            requirementName: req.name,
             newStatus,
-            newStatus !== previousStatus,
-          )
+            expiryDate,
+          })
 
-          if (shouldNotify) {
-            const result = await sendDocumentAlert({
-              entityType: 'vehicle',
-              entityName: vehicle.plate,
-              requirementName: req.name,
-              newStatus,
-              expiryDate,
-            })
+          await supabase.from('notification_log').insert({
+            event_id: newEvent.id,
+            event_table: 'vehicle_document_events',
+            alert_type: newStatus,
+            delivery_status: result.status,
+            failure_reason: result.error ?? null,
+            retry_count: 0,
+          })
 
-            await supabase.from('notification_log').insert({
-              event_id: newEvent.id,
-              event_table: 'vehicle_document_events',
-              alert_type: newStatus,
-              delivery_status: result.status,
-              failure_reason: result.error ?? null,
-              retry_count: 0,
-            })
-
-            if (result.status === 'sent') counts.notified++
-            else counts.failed++
-          }
+          if (result.status === 'sent') counts.notified++
+          else counts.failed++
         }
       }
     }
@@ -305,39 +294,3 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// ── ND-1 corrected notification check ─────────────────────────────────────
-// should_notify =
-//   (new_status != previous_status AND new_status in [Alerta, Crítico])
-//   OR
-//   (new_status in [Alerta, Crítico]
-//    AND no sent row exists in notification_log for this event_id today)
-//
-// Note: we pass in statusTransitioned rather than re-deriving it, because
-// previousStatus is already known at the call site.
-
-async function checkShouldNotify(
-  supabase: Awaited<ReturnType<typeof createSupabaseServiceClient>>,
-  eventId: string,
-  eventTable: 'driver_document_events' | 'vehicle_document_events',
-  newStatus: 'Alerta' | 'Crítico',
-  statusTransitioned: boolean,
-): Promise<boolean> {
-  // Branch 1: status changed into Alerta/Crítico
-  if (statusTransitioned) return true
-
-  // Branch 2: already in Alerta/Crítico — check if no notification sent today (UTC)
-  const todayStart = new Date()
-  todayStart.setUTCHours(0, 0, 0, 0)
-
-  const { data } = await supabase
-    .from('notification_log')
-    .select('id')
-    .eq('event_id', eventId)
-    .eq('event_table', eventTable)
-    .eq('alert_type', newStatus)
-    .eq('delivery_status', 'sent')
-    .gte('notified_at', todayStart.toISOString())
-    .limit(1)
-
-  return (data?.length ?? 0) === 0
-}
