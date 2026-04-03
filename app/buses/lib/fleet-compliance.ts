@@ -69,19 +69,23 @@ export async function getFleetCompliance(
 
     supabase
       .from('document_requirements')
-      .select('id, name, has_expiry, effective_from, effective_to'),
+      .select('id, name, has_expiry, category, effective_from, effective_to'),
   ])
 
   const driverEvents = (driverEventsRes.data ?? []) as RawDriverEvent[]
   const vehicleEvents = (vehicleEventsRes.data ?? []) as RawVehicleEvent[]
   const requirements = (reqsRes.data ?? []) as RawRequirement[]
 
-  // ── Build effectivity-filtered requirement map ────────────────────────────
-  const reqMap = new Map<string, { name: string; has_expiry: boolean }>()
+  // ── Build effectivity-filtered requirement maps per category ─────────────
+  type ReqEntry = { name: string; has_expiry: boolean }
+  const driverReqMap = new Map<string, ReqEntry>()
+  const vehicleReqMap = new Map<string, ReqEntry>()
   for (const req of requirements) {
     if (req.effective_from > asOfDate) continue
     if (req.effective_to && req.effective_to <= asOfDate) continue
-    reqMap.set(req.id, { name: req.name, has_expiry: req.has_expiry })
+    const entry = { name: req.name, has_expiry: req.has_expiry }
+    if (req.category === 'driver') driverReqMap.set(req.id, entry)
+    else vehicleReqMap.set(req.id, entry)
   }
 
   // ── Group raw events by entity id ─────────────────────────────────────────
@@ -110,7 +114,7 @@ export async function getFleetCompliance(
           requirement_id: e.requirement_id,
           expiry_date: e.expiry_date,
         })),
-        reqMap,
+        driverReqMap,
       ),
     ),
     ...vehicles.map((v) =>
@@ -122,7 +126,7 @@ export async function getFleetCompliance(
           requirement_id: e.requirement_id,
           expiry_date: e.expiry_date,
         })),
-        reqMap,
+        vehicleReqMap,
       ),
     ),
   ]
@@ -175,6 +179,7 @@ interface RawRequirement {
   id: string
   name: string
   has_expiry: boolean
+  category: string
   effective_from: string
   effective_to: string | null
 }
