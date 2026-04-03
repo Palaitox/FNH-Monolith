@@ -44,12 +44,11 @@ export async function listAllDrivers(): Promise<Driver[]> {
 
 export async function getDriverById(id: string): Promise<Driver | null> {
   const supabase = await createClient()
-  const { data, error } = await supabase
+  const { data } = await supabase
     .from('drivers')
     .select('*')
     .eq('id', id)
-    .single()
-  if (error) { console.error(error); return null }
+    .maybeSingle()
   return data
 }
 
@@ -112,12 +111,11 @@ export async function listVehicles(): Promise<Vehicle[]> {
 
 export async function getVehicleById(id: string): Promise<Vehicle | null> {
   const supabase = await createClient()
-  const { data, error } = await supabase
+  const { data } = await supabase
     .from('vehicles')
     .select('*')
     .eq('id', id)
-    .single()
-  if (error) { console.error(error); return null }
+    .maybeSingle()
   return data
 }
 
