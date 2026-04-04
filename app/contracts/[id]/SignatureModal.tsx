@@ -22,13 +22,21 @@ export default function SignatureModal({ workerName, onConfirm, onClose }: Props
 
     function resizeCanvas() {
       if (!canvas || !pad) return
+      // Preserve stroke data so iOS browser-chrome resize events don't wipe
+      // the signature mid-session (toolbar animation fires window.resize).
+      const savedData = pad.toData()
       const ratio = Math.max(window.devicePixelRatio ?? 1, 1)
       canvas.width = canvas.offsetWidth * ratio
       canvas.height = canvas.offsetHeight * ratio
       const ctx = canvas.getContext('2d')
       ctx?.scale(ratio, ratio)
       pad.clear()
-      setIsEmpty(true)
+      if (savedData.length > 0) {
+        pad.fromData(savedData)
+        setIsEmpty(false)
+      } else {
+        setIsEmpty(true)
+      }
     }
 
     import('signature_pad').then(({ default: SignaturePad }) => {
