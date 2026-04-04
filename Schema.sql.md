@@ -1,13 +1,13 @@
 # FNH Monolith — Authoritative Database Schema
 
-> **Last updated:** 2026-04-02
-> **Applied migrations:** 0001_initial.sql, 0002_extend_contracts.sql, 0003_seed_document_requirements.sql, 0004_rls.sql, 0005_storage_policies.sql, 0006_update_vehicle_requirements.sql, 0007_servitrans_driver_requirements.sql
+> **Last updated:** 2026-04-03
+> **Applied migrations:** 0001_initial.sql, 0002_extend_contracts.sql, 0003_seed_document_requirements.sql, 0004_rls.sql, 0005_storage_policies.sql, 0006_update_vehicle_requirements.sql, 0007_servitrans_driver_requirements.sql, 0008_employees_softdelete.sql, 0009_users_softdelete.sql, 0010_drop_contract_templates.sql
 > **Source of truth:** Supabase Dashboard → Table Editor
 > This file must be kept in sync with every new migration.
 
 ---
 
-## Complete Schema (post-migration-0007)
+## Complete Schema (post-migration-0010)
 
 ```sql
 -- ============================================================
@@ -15,9 +15,11 @@
 -- ============================================================
 
 create table users (
-  id    uuid primary key references auth.users,
-  name  text not null,
-  role  text not null check (role in ('admin', 'coordinator', 'viewer'))
+  id             uuid        primary key references auth.users,
+  name           text        not null,
+  role           text        not null check (role in ('admin', 'coordinator', 'viewer')),
+  email          text,                    -- stored at invite time (migration 0009, ND-32)
+  deactivated_at timestamptz              -- soft-delete (migration 0009, ND-32)
 );
 
 create table system_logs (
@@ -31,12 +33,8 @@ create table system_logs (
 -- CONTRACTS MODULE
 -- ============================================================
 
-create table contract_templates (
-  id           uuid        primary key default gen_random_uuid(),
-  name         text        not null,
-  storage_path text        not null,
-  created_at   timestamptz not null default now()
-);
+-- contract_templates table DROPPED by migration 0010 (ND-35).
+-- Contracts are now generated natively via @react-pdf/renderer — no .docx files.
 
 create table employees (
   id                 uuid        primary key default gen_random_uuid(),
@@ -50,13 +48,14 @@ create table employees (
   auxilio_transporte numeric(12,2) not null default 0,
   jornada_laboral    text         not null default 'tiempo_completo'
                      check (jornada_laboral in ('tiempo_completo', 'medio_tiempo', 'prestacion_servicios')),
+  deactivated_at     timestamptz,           -- soft-delete (migration 0008, ND-29)
   created_at         timestamptz  not null default now()
 );
 
 create table contracts (
   id               uuid        primary key default gen_random_uuid(),
   employee_id      uuid        not null references employees(id),
-  template_id      uuid        not null references contract_templates(id),
+  template_id      uuid,       -- FK dropped and column made nullable in migration 0010 (ND-35)
   -- status renamed to estado in migration 0002
   estado           text        not null check (estado in ('generated', 'signed')),
   -- Legacy fields added in migration 0002
@@ -229,6 +228,16 @@ create unique index idx_contracts_number
 -- Audit log lookup by contract
 create index idx_audit_contract
   on contract_audit_logs (contract_id, created_at desc);
+
+-- Active employees fast lookup (partial index on active set)
+create index idx_employees_active
+  on employees (full_name)
+  where deactivated_at is null;
+
+-- Active users fast lookup (partial index on active set, migration 0009)
+create index idx_users_active
+  on users (name)
+  where deactivated_at is null;
 ```
 
 ---
@@ -244,3 +253,6 @@ create index idx_audit_contract
 | `0005_storage_policies.sql` | 2026-03-30 | `contracts` Storage bucket; read all-auth; write/delete scoped by role |
 | `0006_update_vehicle_requirements.sql` | 2026-04-01 | Hard DELETE: RCEC events + requirement, Tarjeta de propiedad events + requirement; RENAME RCC → "Seguro obligatorio (SOAT)"; INSERT "Certificado de revisión preventiva" |
 | `0007_servitrans_driver_requirements.sql` | 2026-04-01 | Hard replace all driver requirements with SERVITRANS 16-item onboarding checklist: 15 `has_expiry=false` binary items + 1 `has_expiry=true` (Licencia de conducción C2) |
+| `0008_employees_softdelete.sql` | 2026-04-02 | ADD COLUMN `deactivated_at timestamptz` to `employees`; CREATE partial index `idx_employees_active` on active employees (ND-29) |
+| `0009_users_softdelete.sql` | 2026-04-03 | ADD COLUMN `email text` and `deactivated_at timestamptz` to `public.users`; CREATE partial index `idx_users_active`; CREATE POLICY `users_delete_admin` (ND-32) |
+| `0010_drop_contract_templates.sql` | 2026-04-03 | DROP FK `contracts_template_id_fkey`; ALTER `contracts.template_id` to nullable; DROP TABLE `contract_templates` (ND-35) |

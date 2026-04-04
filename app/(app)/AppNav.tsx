@@ -1,6 +1,7 @@
 'use client'
 
 import { usePathname } from 'next/navigation'
+import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/client'
 import { useRouter } from 'next/navigation'
 
@@ -11,6 +12,8 @@ const NAV_LINKS = [
   { href: '/buses', label: 'Buses' },
 ]
 
+const ADMIN_LINK = { href: '/admin', label: 'Admin' }
+
 interface Props {
   role: string | null
 }
@@ -18,6 +21,18 @@ interface Props {
 export default function AppNav({ role }: Props) {
   const pathname = usePathname()
   const router = useRouter()
+  const [isDark, setIsDark] = useState(true)
+
+  useEffect(() => {
+    setIsDark(document.documentElement.classList.contains('dark'))
+  }, [])
+
+  function toggleTheme() {
+    const next = !isDark
+    setIsDark(next)
+    document.documentElement.classList.toggle('dark', next)
+    localStorage.setItem('theme', next ? 'dark' : 'light')
+  }
 
   async function handleSignOut() {
     const supabase = createClient()
@@ -32,7 +47,7 @@ export default function AppNav({ role }: Props) {
         <span className="text-sm font-semibold tracking-tight shrink-0">FNH</span>
 
         <nav className="flex items-center gap-1 flex-1">
-          {NAV_LINKS.map(({ href, label }) => {
+          {[...NAV_LINKS, ...(role === 'admin' ? [ADMIN_LINK] : [])].map(({ href, label }) => {
             const active = pathname === href || (href !== '/dashboard' && pathname.startsWith(href))
             return (
               <a
@@ -52,6 +67,13 @@ export default function AppNav({ role }: Props) {
 
         <div className="flex items-center gap-3 text-sm text-muted-foreground">
           {role && <span className="capitalize">{role}</span>}
+          <button
+            onClick={toggleTheme}
+            className="hover:text-foreground transition-colors"
+            title={isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+          >
+            {isDark ? '☀' : '☾'}
+          </button>
           <button
             onClick={handleSignOut}
             className="hover:text-foreground transition-colors"

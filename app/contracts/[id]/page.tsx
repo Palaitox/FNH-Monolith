@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/server'
-import { getContract, getContractAuditLogs } from '@/app/(shared)/lib/db'
+import { getContract, getContractAuditLogs, getEmployee } from '@/app/(shared)/lib/db'
 import ContractDetail from './ContractDetail'
 
 interface Props {
@@ -18,5 +18,7 @@ export default async function ContractDetailPage({ params }: Props) {
 
   if (!contract) notFound()
 
-  return <ContractDetail contract={contract} auditLogs={auditLogs} />
+  const employee = await getEmployee(supabase, contract.employee_id)
+
+  return <ContractDetail contract={contract} auditLogs={auditLogs} employee={employee} />
 }

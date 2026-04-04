@@ -49,6 +49,10 @@ export default [
           pattern: 'app/api/**/*',
         },
         {
+          type: 'admin',
+          pattern: 'app/admin/**/*',
+        },
+        {
           type: 'app-shell',
           pattern: 'app/\\(app\\)/**/*',
         },
@@ -84,6 +88,12 @@ export default [
               from: ['employees'],
               disallow: ['contracts', 'buses'],
               message: 'employees/ must not import from other modules — use (shared)/ for cross-module code',
+            },
+            // admin/* must not import from other feature modules
+            {
+              from: ['admin'],
+              disallow: ['contracts', 'buses', 'employees'],
+              message: 'admin/ must not import from other modules — use (shared)/ for cross-module code',
             },
           ],
         },

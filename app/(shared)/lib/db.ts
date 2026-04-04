@@ -16,7 +16,6 @@ import type { Employee } from '@/app/(shared)/lib/employee-types'
 import type {
   Contract,
   ContractWithEmployee,
-  ContractTemplate,
   ContractAuditLog,
   AppSettings,
 } from '@/app/contracts/types'
@@ -204,7 +203,10 @@ export async function getContract(
     .single()
 
   if (error) {
-    console.error('Error fetching contract:', error)
+    // PGRST116 = no rows — valid after deletion, not a real error
+    if (error.code !== 'PGRST116') {
+      console.error('Error fetching contract:', error)
+    }
     return null
   }
   return data as ContractWithEmployee
@@ -214,7 +216,6 @@ export async function createContract(
   supabase: SupabaseClient,
   input: {
     employee_id: string
-    template_id: string
     contract_number: string
     tipo_contrato: string
     fecha_inicio: string
@@ -226,7 +227,6 @@ export async function createContract(
     .from('contracts')
     .insert({
       employee_id: input.employee_id,
-      template_id: input.template_id,
       contract_number: input.contract_number,
       tipo_contrato: input.tipo_contrato,
       fecha_inicio: input.fecha_inicio,
@@ -300,45 +300,6 @@ export async function peekNextContractNumber(
     max = Math.max(...numbers)
   }
   return `${year}-${String(max + 1).padStart(3, '0')}`
-}
-
-// ── Contract templates ─────────────────────────────────────────────────────
-
-export async function getContractTemplates(
-  supabase: SupabaseClient,
-): Promise<ContractTemplate[]> {
-  const { data, error } = await supabase
-    .from('contract_templates')
-    .select('*')
-    .order('name', { ascending: true })
-
-  if (error) {
-    console.error('Error fetching templates:', error)
-    return []
-  }
-  return data ?? []
-}
-
-export async function createContractTemplate(
-  supabase: SupabaseClient,
-  input: { name: string; storage_path: string },
-): Promise<ContractTemplate> {
-  const { data, error } = await supabase
-    .from('contract_templates')
-    .insert(input)
-    .select()
-    .single()
-
-  if (error || !data) throw new Error(error?.message ?? 'Error al crear la plantilla.')
-  return data
-}
-
-export async function deleteContractTemplate(
-  supabase: SupabaseClient,
-  id: string,
-): Promise<void> {
-  const { error } = await supabase.from('contract_templates').delete().eq('id', id)
-  if (error) throw new Error(error.message)
 }
 
 // ── Audit log ──────────────────────────────────────────────────────────────

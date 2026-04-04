@@ -1,21 +1,9 @@
-// Employee domain types live in (shared)/ — imported for local use (mapEmployeeForContractGen)
-// and re-exported for backwards compatibility with contracts/ code that imports from this file.
-import type { Employee, JornadaLaboral } from '@/app/(shared)/lib/employee-types'
-export type { Employee, JornadaLaboral }
-
 export type ContractEstado = 'generated' | 'signed'
-
-export interface ContractTemplate {
-  id: string
-  name: string
-  storage_path: string
-  created_at: string
-}
 
 export interface Contract {
   id: string
   employee_id: string
-  template_id: string
+  template_id: string | null
   contract_number: string | null
   tipo_contrato: string | null
   fecha_inicio: string | null
@@ -53,33 +41,6 @@ export interface AppSettings {
   empleadorNit: string
   empleadorRepresentante: string
   ciudadSede?: string
-}
-
-// ── contract-gen.js interop ────────────────────────────────────────────────
-// contract-gen.js expects camelCase fields different from DB snake_case.
-// Use mapEmployeeForContractGen() before passing to generateContractDocx().
-
-export interface ContractGenEmployee {
-  nombre: string
-  cargo: string
-  cedula: string
-  salarioBase: number
-  auxilioTransporte: number
-  telefono?: string
-  correo?: string
-  ciudad?: string
-}
-
-export function mapEmployeeForContractGen(e: Employee): ContractGenEmployee {
-  return {
-    nombre: e.full_name,
-    cargo: e.cargo ?? '',
-    cedula: e.cedula,
-    salarioBase: e.salario_base ?? 0,
-    auxilioTransporte: e.auxilio_transporte,
-    telefono: e.telefono ?? undefined,
-    correo: e.correo ?? undefined,
-  }
 }
 
 // ── Integrity verification ─────────────────────────────────────────────────

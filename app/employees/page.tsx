@@ -63,10 +63,6 @@ export default function EmployeesPage() {
   const inactive = employees.filter((e) => e.deactivated_at !== null)
   const byJornada = (j: JornadaLaboral) =>
     active.filter((e) => e.jornada_laboral === j).length
-  const avgSalary =
-    active.length > 0
-      ? active.reduce((sum, e) => sum + (e.salario_base ?? 0), 0) / active.length
-      : 0
 
   return (
     <main className="max-w-5xl mx-auto p-6 space-y-8">
@@ -106,13 +102,6 @@ export default function EmployeesPage() {
               <p className="text-2xl font-semibold mt-1">{value}</p>
             </div>
           ))}
-        </div>
-      )}
-
-      {avgSalary > 0 && (
-        <div className="rounded-lg border border-border bg-card px-4 py-3 flex items-center justify-between">
-          <span className={labelClass}>Salario base promedio (activos)</span>
-          <span className="font-mono text-sm font-medium">{formatCOP(Math.round(avgSalary))}</span>
         </div>
       )}
 
