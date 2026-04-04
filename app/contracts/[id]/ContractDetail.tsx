@@ -142,7 +142,10 @@ export default function ContractDetail({ contract, auditLogs, employee, role }: 
     // Open the window synchronously while still inside the click-handler's
     // user-gesture context. iOS Safari blocks window.open() called after
     // any await, treating it as an unsolicited popup.
-    const newWindow = window.open('', '_blank', 'noopener')
+    // NOTE: do NOT pass 'noopener' — it causes the browser to return null
+    // for the window reference, which makes every browser fall back to
+    // navigating the current tab instead of the new window.
+    const newWindow = window.open('', '_blank')
     try {
       const supabase = createClient()
       const { data, error } = await supabase.storage
