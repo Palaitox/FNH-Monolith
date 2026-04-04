@@ -99,15 +99,27 @@ export default function ContractDetail({ contract, auditLogs, employee }: Props)
         .upload(pdfPath, pdfBlob, { contentType: 'application/pdf', upsert: true })
       if (upErr) throw new Error(`Error al subir el PDF: ${upErr.message}`)
 
-      // Trigger browser download of the signed PDF
-      const url = URL.createObjectURL(pdfBlob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = filename
-      a.click()
-      URL.revokeObjectURL(url)
-
       await attachSignedPdfAction(contract.id, pdfPath, filename, hash)
+
+      // Trigger browser download — desktop only.
+      // On iOS Safari, a.click() on a blob URL navigates the current page,
+      // causing "Load Failed" and killing attachSignedPdfAction before it runs.
+      const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+      if (!isMobile) {
+        try {
+          const url = URL.createObjectURL(pdfBlob)
+          const a = document.createElement('a')
+          a.href = url
+          a.download = filename
+          document.body.appendChild(a)
+          a.click()
+          document.body.removeChild(a)
+          setTimeout(() => URL.revokeObjectURL(url), 1000)
+        } catch {
+          // ignore — contract is already signed and saved
+        }
+      }
+
       router.refresh()
     } catch (e) {
       setSignError(e instanceof Error ? e.message : 'Error al generar el contrato firmado.')
