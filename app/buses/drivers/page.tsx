@@ -8,7 +8,7 @@ export default async function DriversPage() {
   const inactive = drivers.filter((d) => d.deactivated_at)
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
+    <div className="px-4 py-6 sm:px-6 max-w-5xl mx-auto space-y-6">
       <div className="space-y-4">
         <Link
           href="/buses"
@@ -16,7 +16,7 @@ export default async function DriversPage() {
         >
           ← Buses
         </Link>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="space-y-0.5">
             <h1 className="text-xl font-semibold tracking-tight">Conductores</h1>
             <p className="text-sm text-muted-foreground">
@@ -38,12 +38,12 @@ export default async function DriversPage() {
           <p className="text-sm text-muted-foreground">No hay conductores registrados.</p>
         </div>
       ) : (
-        <div className="rounded-lg border border-border bg-card overflow-hidden">
+        <div className="rounded-lg border border-border bg-card overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground bg-muted/40">
                 <th className="px-4 py-2.5 text-left">Nombre</th>
-                <th className="px-4 py-2.5 text-left">Cédula</th>
+                <th className="px-4 py-2.5 text-left hidden sm:table-cell">Cédula</th>
                 <th className="px-4 py-2.5 text-left">Estado</th>
                 <th className="px-4 py-2.5 text-right" />
               </tr>
@@ -52,7 +52,7 @@ export default async function DriversPage() {
               {drivers.map((d) => (
                 <tr key={d.id} className="hover:bg-muted/20 transition-colors">
                   <td className="px-4 py-3 font-medium">{d.full_name}</td>
-                  <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{d.cedula}</td>
+                  <td className="px-4 py-3 font-mono text-xs text-muted-foreground hidden sm:table-cell">{d.cedula}</td>
                   <td className="px-4 py-3">
                     {d.deactivated_at ? (
                       <span className="inline-flex items-center gap-1 font-mono text-xs text-muted-foreground border border-border rounded-full px-2 py-0.5">

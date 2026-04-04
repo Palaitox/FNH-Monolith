@@ -53,7 +53,7 @@ export default function NewEmployeePage() {
   }
 
   return (
-    <main className="max-w-2xl mx-auto p-6 space-y-8">
+    <main className="max-w-2xl mx-auto px-4 py-6 sm:px-6 space-y-8">
       <div>
         <Link
           href="/employees"
@@ -100,7 +100,7 @@ export default function NewEmployeePage() {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label className={labelClass}>Teléfono</label>
               <input
@@ -140,7 +140,7 @@ export default function NewEmployeePage() {
             </select>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label className={labelClass}>Salario base (COP)</label>
               <input

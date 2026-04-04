@@ -93,7 +93,7 @@ export default function VehicleDetail({ vehicle, compliance, requirements }: Pro
   const isActive = !vehicle.deactivated_at
 
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-8">
+    <div className="px-4 py-6 sm:px-6 max-w-3xl mx-auto space-y-8">
 
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
@@ -105,7 +105,7 @@ export default function VehicleDetail({ vehicle, compliance, requirements }: Pro
       </div>
 
       {/* Summary counts */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {(['Vigente', 'Seguimiento', 'Alerta', 'Crítico'] as const).map((s) => (
           <div key={s} className="rounded-lg border border-border bg-card p-3 text-center space-y-2">
             <p className="text-2xl font-semibold tracking-tight">{compliance.counts[s]}</p>
@@ -166,14 +166,14 @@ export default function VehicleDetail({ vehicle, compliance, requirements }: Pro
           <h2 className={labelClass}>Registrar / actualizar documentos</h2>
           <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
             {requirements.map((req) => (
-              <div key={req.id} className="flex items-center gap-3 py-1">
+              <div key={req.id} className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3 py-1">
                 <div className="flex-1 min-w-0">
                   <p className="text-sm truncate">{req.name}</p>
                 </div>
                 {req.has_expiry ? (
                   <input
                     type="date"
-                    className={`${fieldClass} w-36`}
+                    className={`${fieldClass} w-full sm:w-36`}
                     value={docInputs[req.id]?.expiry_date ?? ''}
                     onChange={(e) =>
                       setDocInputs((prev) => ({
@@ -183,7 +183,7 @@ export default function VehicleDetail({ vehicle, compliance, requirements }: Pro
                     }
                   />
                 ) : (
-                  <span className="font-mono text-xs text-muted-foreground w-36 text-center">Sin vencimiento</span>
+                  <span className="font-mono text-xs text-muted-foreground sm:w-36 sm:text-center">Sin vencimiento</span>
                 )}
                 <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
                   <input

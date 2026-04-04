@@ -163,7 +163,7 @@ export default function DriverDetail({ driver, compliance, requirements }: Props
   const isActive = !driver.deactivated_at
 
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-8">
+    <div className="px-4 py-6 sm:px-6 max-w-3xl mx-auto space-y-8">
 
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
@@ -292,11 +292,11 @@ export default function DriverDetail({ driver, compliance, requirements }: Props
             <div className="space-y-2 border-t border-border pt-4">
               <p className={labelClass}>Con fecha de vencimiento</p>
               {expiryReqs.map((req) => (
-                <div key={req.id} className="flex items-center gap-3 py-1">
+                <div key={req.id} className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3 py-1">
                   <span className="flex-1 text-sm">{req.name}</span>
                   <input
                     type="date"
-                    className={`${fieldClass} w-36`}
+                    className={`${fieldClass} w-full sm:w-36`}
                     value={expiryInputs[req.id] ?? ''}
                     onChange={(e) =>
                       setExpiryInputs((prev) => ({ ...prev, [req.id]: e.target.value }))

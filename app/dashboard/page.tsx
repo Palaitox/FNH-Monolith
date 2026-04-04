@@ -44,7 +44,7 @@ export default async function DashboardPage() {
   ]
 
   return (
-    <div className="p-6 space-y-8 max-w-5xl mx-auto">
+    <div className="px-4 py-6 sm:px-6 space-y-8 max-w-5xl mx-auto">
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <div>
         <h1 className="text-xl font-semibold tracking-tight">Panel de control</h1>

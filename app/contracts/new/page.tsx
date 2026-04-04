@@ -99,7 +99,7 @@ export default function NewContractPage() {
   }
 
   return (
-    <div className="p-6 max-w-2xl space-y-6">
+    <div className="px-4 py-6 sm:px-6 max-w-2xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Nuevo contrato</h1>
         <p className="text-sm text-muted-foreground mt-1">
@@ -142,7 +142,7 @@ export default function NewContractPage() {
         </div>
 
         {/* Dates */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <label className="text-sm font-medium">Fecha de inicio</label>
             <input

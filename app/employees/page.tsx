@@ -65,9 +65,9 @@ export default function EmployeesPage() {
     active.filter((e) => e.jornada_laboral === j).length
 
   return (
-    <main className="max-w-5xl mx-auto p-6 space-y-8">
+    <main className="max-w-5xl mx-auto px-4 py-6 sm:px-6 space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <p className={labelClass}>Módulo</p>
           <h1 className="text-2xl font-semibold tracking-tight mt-0.5">Empleados</h1>
@@ -137,15 +137,15 @@ export default function EmployeesPage() {
       </div>
 
       {/* Table */}
-      <div className="rounded-lg border border-border overflow-hidden">
+      <div className="rounded-lg border border-border overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/40">
               <th className={`px-4 py-2.5 text-left ${labelClass}`}>Nombre</th>
-              <th className={`px-4 py-2.5 text-left ${labelClass} font-mono`}>Cédula</th>
-              <th className={`px-4 py-2.5 text-left ${labelClass}`}>Cargo</th>
+              <th className={`px-4 py-2.5 text-left ${labelClass} font-mono hidden sm:table-cell`}>Cédula</th>
+              <th className={`px-4 py-2.5 text-left ${labelClass} hidden sm:table-cell`}>Cargo</th>
               <th className={`px-4 py-2.5 text-left ${labelClass}`}>Jornada</th>
-              <th className={`px-4 py-2.5 text-right ${labelClass}`}>Salario base</th>
+              <th className={`px-4 py-2.5 text-right ${labelClass} hidden sm:table-cell`}>Salario base</th>
               <th className="px-4 py-2.5" />
             </tr>
           </thead>
@@ -166,8 +166,8 @@ export default function EmployeesPage() {
               filtered.map((e) => (
                 <tr key={e.id} className="hover:bg-muted/20 transition-colors">
                   <td className="px-4 py-3 font-medium">{e.full_name}</td>
-                  <td className="px-4 py-3 font-mono text-muted-foreground">{e.cedula}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{e.cargo ?? '—'}</td>
+                  <td className="px-4 py-3 font-mono text-muted-foreground hidden sm:table-cell">{e.cedula}</td>
+                  <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">{e.cargo ?? '—'}</td>
                   <td className="px-4 py-3">
                     <span
                       className={`inline-flex items-center rounded-full border px-2 py-0.5 font-mono text-xs ${JORNADA_COLORS[e.jornada_laboral]}`}
@@ -175,7 +175,7 @@ export default function EmployeesPage() {
                       {JORNADA_LABELS[e.jornada_laboral]}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-right font-mono text-muted-foreground">
+                  <td className="px-4 py-3 text-right font-mono text-muted-foreground hidden sm:table-cell">
                     {formatCOP(e.salario_base)}
                   </td>
                   <td className="px-4 py-3 text-right">
