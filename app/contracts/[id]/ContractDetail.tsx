@@ -131,14 +131,24 @@ export default function ContractDetail({ contract, auditLogs, employee }: Props)
   async function handleOpenPdf() {
     if (!contract.pdf_path) return
     setOpeningPdf(true)
+    // Open the window synchronously while still inside the click-handler's
+    // user-gesture context. iOS Safari blocks window.open() called after
+    // any await, treating it as an unsolicited popup.
+    const newWindow = window.open('', '_blank', 'noopener')
     try {
       const supabase = createClient()
       const { data, error } = await supabase.storage
         .from(STORAGE_BUCKET)
         .createSignedUrl(contract.pdf_path, 3600)
       if (error || !data) throw new Error('No se pudo generar el enlace.')
-      window.open(data.signedUrl, '_blank', 'noopener')
+      if (newWindow) {
+        newWindow.location.href = data.signedUrl
+      } else {
+        // Popup was blocked — fall back to same-tab navigation
+        window.location.href = data.signedUrl
+      }
     } catch (e) {
+      newWindow?.close()
       console.error(e)
     } finally {
       setOpeningPdf(false)
