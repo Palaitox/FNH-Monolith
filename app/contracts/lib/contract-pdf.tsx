@@ -21,6 +21,7 @@ import {
   StyleSheet,
   pdf,
 } from '@react-pdf/renderer'
+import type { DocumentProps } from '@react-pdf/renderer'
 import type { ContractVars } from './pdf-vars'
 
 // ── Styles ─────────────────────────────────────────────────────────────────
@@ -902,7 +903,7 @@ function ContratoPrestacionServicios({ v }: { v: ContractVars }) {
 // ── Public export ───────────────────────────────────────────────────────────
 
 export async function generateContractPdf(vars: ContractVars, tipo: string): Promise<Blob> {
-  let doc: React.ReactElement
+  let doc: React.ReactElement<DocumentProps>
 
   if (tipo === 'tiempo_completo') {
     doc = <ContratoLaboral v={vars} titulo="A TÉRMINO FIJO INFERIOR A UN AÑO" octavaBody={OCTAVA_COMPLETO} />
