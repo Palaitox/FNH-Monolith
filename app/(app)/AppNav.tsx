@@ -9,8 +9,8 @@ import { Menu, X } from 'lucide-react'
 
 const NAV_LINKS = [
   { href: '/dashboard', label: 'Panel' },
-  { href: '/contracts', label: 'Contratos' },
   { href: '/employees', label: 'Empleados' },
+  { href: '/contracts', label: 'Contratos' },
   { href: '/buses', label: 'Buses' },
 ]
 
