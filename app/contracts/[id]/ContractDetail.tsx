@@ -3,39 +3,41 @@
 import { useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { CheckSquare, Clock, ShieldCheck, ShieldAlert, Trash2, Upload } from 'lucide-react'
+import { CheckSquare, Clock, ShieldCheck, ShieldAlert, Trash2, Upload, PenLine, ExternalLink } from 'lucide-react'
 import { createClient } from '@/lib/client'
 import {
   attachSignedPdfAction,
   deleteContractAction,
+  getAppSettings,
 } from '@/app/contracts/actions/contracts'
 import { verifyContractIntegrity } from '@/app/contracts/actions/verify-integrity'
 import type { ContractWithEmployee, ContractAuditLog } from '@/app/contracts/types'
-
-// Browser-only security module — loaded at module level (Client Component, always in browser)
+import type { Employee } from '@/app/(shared)/lib/employee-types'
 import { hashData } from '@/app/contracts/lib/security'
+import SignatureModal from './SignatureModal'
 
 interface Props {
   contract: ContractWithEmployee
   auditLogs: ContractAuditLog[]
+  employee: Employee | null
 }
 
 const STORAGE_BUCKET = 'contracts'
-
 const labelClass = "text-xs font-medium uppercase tracking-wide text-muted-foreground"
 const btnSecondary = "rounded-md border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
 
-export default function ContractDetail({ contract: initial, auditLogs }: Props) {
+export default function ContractDetail({ contract, auditLogs, employee }: Props) {
   const router = useRouter()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isPending, startTransition] = useTransition()
-
-  const [contract] = useState(initial)
-  const [logs] = useState(auditLogs)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState(false)
+  const [showSignatureModal, setShowSignatureModal] = useState(false)
+  const [signing, setSigning] = useState(false)
+  const [signError, setSignError] = useState<string | null>(null)
 
+  const [openingPdf, setOpeningPdf] = useState(false)
   const [verifying, setVerifying] = useState(false)
   const [integrityResult, setIntegrityResult] = useState<{
     match: boolean
@@ -50,21 +52,84 @@ export default function ContractDetail({ contract: initial, auditLogs }: Props) 
     try {
       const buffer = await file.arrayBuffer()
       const hash = await hashData(buffer)
-
       const pdfPath = `pdf/${contract.contract_number ?? contract.id}_${Date.now()}.pdf`
       const supabase = createClient()
       const { error: upErr } = await supabase.storage
         .from(STORAGE_BUCKET)
         .upload(pdfPath, file, { contentType: 'application/pdf', upsert: true })
-
       if (upErr) throw new Error(`Error al subir el PDF: ${upErr.message}`)
-
       await attachSignedPdfAction(contract.id, pdfPath, file.name, hash)
       router.refresh()
     } catch (e) {
       setUploadError(e instanceof Error ? e.message : 'Error desconocido.')
     } finally {
       setUploading(false)
+    }
+  }
+
+  async function handleSignatureConfirmed(signatureDataUrl: string) {
+    if (!employee) return
+    setShowSignatureModal(false)
+    setSigning(true)
+    setSignError(null)
+    try {
+      const [{ generateContractPdf }, { buildContractVars }, settings] = await Promise.all([
+        import('@/app/contracts/lib/contract-pdf'),
+        import('@/app/contracts/lib/pdf-vars'),
+        getAppSettings(),
+      ])
+
+      const baseVars = buildContractVars(employee, {
+        numeroContrato: contract.contract_number ?? '',
+        fechaInicio: contract.fecha_inicio ?? '',
+        fechaTerminacion: contract.fecha_terminacion ?? undefined,
+        lugarTrabajo: settings.lugarTrabajo,
+      })
+      const vars = { ...baseVars, firma: signatureDataUrl }
+
+      const pdfBlob = await generateContractPdf(vars, contract.tipo_contrato ?? '')
+      const buffer = await pdfBlob.arrayBuffer()
+      const hash = await hashData(buffer)
+
+      const filename = `contrato_${contract.contract_number}_firmado.pdf`
+      const pdfPath = `pdf/${contract.contract_number ?? contract.id}_signed.pdf`
+      const supabase = createClient()
+      const { error: upErr } = await supabase.storage
+        .from(STORAGE_BUCKET)
+        .upload(pdfPath, pdfBlob, { contentType: 'application/pdf', upsert: true })
+      if (upErr) throw new Error(`Error al subir el PDF: ${upErr.message}`)
+
+      // Trigger browser download of the signed PDF
+      const url = URL.createObjectURL(pdfBlob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      a.click()
+      URL.revokeObjectURL(url)
+
+      await attachSignedPdfAction(contract.id, pdfPath, filename, hash)
+      router.refresh()
+    } catch (e) {
+      setSignError(e instanceof Error ? e.message : 'Error al generar el contrato firmado.')
+    } finally {
+      setSigning(false)
+    }
+  }
+
+  async function handleOpenPdf() {
+    if (!contract.pdf_path) return
+    setOpeningPdf(true)
+    try {
+      const supabase = createClient()
+      const { data, error } = await supabase.storage
+        .from(STORAGE_BUCKET)
+        .createSignedUrl(contract.pdf_path, 3600)
+      if (error || !data) throw new Error('No se pudo generar el enlace.')
+      window.open(data.signedUrl, '_blank', 'noopener')
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setOpeningPdf(false)
     }
   }
 
@@ -80,172 +145,216 @@ export default function ContractDetail({ contract: initial, auditLogs }: Props) 
     if (!deleteConfirm) { setDeleteConfirm(true); return }
     startTransition(async () => {
       await deleteContractAction(contract.id)
-      router.push('/contracts')
     })
   }
 
   const isSignedState = contract.estado === 'signed'
 
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-8">
-
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-3">
-            <h1 className="text-xl font-semibold tracking-tight">
-              {contract.employees?.full_name ?? '—'}
-            </h1>
-            {isSignedState ? (
-              <span className="inline-flex items-center gap-1 font-mono text-xs font-medium text-emerald-500 border border-emerald-500/20 bg-emerald-500/10 rounded-full px-2.5 py-0.5">
-                <CheckSquare className="h-3 w-3" /> Firmado
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 font-mono text-xs font-medium text-amber-500 border border-amber-500/20 bg-amber-500/10 rounded-full px-2.5 py-0.5">
-                <Clock className="h-3 w-3" /> Pendiente
-              </span>
-            )}
-          </div>
-          <p className="font-mono text-sm text-muted-foreground">{contract.contract_number ?? '—'}</p>
-        </div>
-      </div>
-
-      {/* Contract info */}
-      <div className="rounded-lg border border-border divide-y divide-border/60">
-        <Row label="Tipo de contrato" value={contract.tipo_contrato} />
-        <Row label="Fecha de inicio" value={contract.fecha_inicio} mono />
-        <Row label="Fecha de terminación" value={contract.fecha_terminacion} mono />
-        <Row label="Forma de pago" value={contract.forma_pago} />
-        <Row
-          label="Generado"
-          value={new Date(contract.generated_at).toLocaleString('es-CO', {
-            dateStyle: 'medium',
-            timeStyle: 'short',
-          })}
-          mono
+    <>
+      {showSignatureModal && (
+        <SignatureModal
+          workerName={contract.employees?.full_name ?? ''}
+          onConfirm={handleSignatureConfirmed}
+          onClose={() => setShowSignatureModal(false)}
         />
-        {contract.signed_at && (
+      )}
+
+      <div className="p-6 max-w-3xl mx-auto space-y-8">
+
+        {/* Header */}
+        <div className="flex items-start justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-3">
+              <h1 className="text-xl font-semibold tracking-tight">
+                {contract.employees?.full_name ?? '—'}
+              </h1>
+              {isSignedState ? (
+                <span className="inline-flex items-center gap-1 font-mono text-xs font-medium text-emerald-500 border border-emerald-500/20 bg-emerald-500/10 rounded-full px-2.5 py-0.5">
+                  <CheckSquare className="h-3 w-3" /> Firmado
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 font-mono text-xs font-medium text-amber-500 border border-amber-500/20 bg-amber-500/10 rounded-full px-2.5 py-0.5">
+                  <Clock className="h-3 w-3" /> Pendiente
+                </span>
+              )}
+            </div>
+            <p className="font-mono text-sm text-muted-foreground">{contract.contract_number ?? '—'}</p>
+          </div>
+        </div>
+
+        {/* Contract info */}
+        <div className="rounded-lg border border-border divide-y divide-border/60">
+          <Row label="Tipo de contrato" value={contract.tipo_contrato} />
+          <Row label="Fecha de inicio" value={contract.fecha_inicio} mono />
+          <Row label="Fecha de terminación" value={contract.fecha_terminacion} mono />
+          <Row label="Forma de pago" value={contract.forma_pago} />
           <Row
-            label="Firmado"
-            value={new Date(contract.signed_at).toLocaleString('es-CO', {
+            label="Generado"
+            value={new Date(contract.generated_at).toLocaleString('es-CO', {
               dateStyle: 'medium',
               timeStyle: 'short',
             })}
             mono
           />
+          {contract.signed_at && (
+            <Row
+              label="Firmado"
+              value={new Date(contract.signed_at).toLocaleString('es-CO', {
+                dateStyle: 'medium',
+                timeStyle: 'short',
+              })}
+              mono
+            />
+          )}
+        </div>
+
+        {/* Signature capture */}
+        {!isSignedState && employee && (
+          <section className="rounded-lg border border-border bg-card p-5 space-y-3">
+            <h2 className={labelClass}>Firma presencial</h2>
+            <p className="text-sm text-muted-foreground">
+              Abre el panel de firma, pídele al empleado que firme con el lápiz digital,
+              y el sistema generará automáticamente el PDF firmado.
+            </p>
+            {signError && (
+              <p className="font-mono text-xs text-destructive bg-destructive/10 rounded px-3 py-1.5">
+                {signError}
+              </p>
+            )}
+            <button
+              onClick={() => setShowSignatureModal(true)}
+              disabled={signing}
+              className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
+            >
+              <PenLine className="h-4 w-4" />
+              {signing ? 'Generando PDF firmado…' : 'Capturar firma del trabajador'}
+            </button>
+          </section>
         )}
-      </div>
 
-      {/* PDF section */}
-      <section className="rounded-lg border border-border bg-card p-5 space-y-4">
-        <h2 className={labelClass}>PDF firmado</h2>
+        {/* PDF section — only shown once the contract has been signed or a PDF already exists */}
+        {(isSignedState || !!contract.pdf_path) && (
+        <section className="rounded-lg border border-border bg-card p-5 space-y-4">
+          <h2 className={labelClass}>PDF firmado</h2>
 
-        {contract.pdf_path ? (
-          <div className="space-y-4">
-            <p className="font-mono text-sm text-muted-foreground">{contract.pdf_filename ?? contract.pdf_path}</p>
+          {contract.pdf_path ? (
+            <div className="space-y-4">
+              {/* Filename + actions row */}
+              <div className="flex items-center gap-3 flex-wrap">
+                <p className="font-mono text-sm text-muted-foreground flex-1 min-w-0 truncate">
+                  {contract.pdf_filename ?? contract.pdf_path}
+                </p>
+                <button
+                  onClick={handleOpenPdf}
+                  disabled={openingPdf}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors shrink-0"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  {openingPdf ? 'Abriendo…' : 'Ver PDF'}
+                </button>
+              </div>
 
-            <div className="space-y-2">
-              <button
-                onClick={handleVerifyIntegrity}
-                disabled={verifying}
-                className={`inline-flex items-center gap-1.5 ${btnSecondary} text-xs py-1.5`}
-              >
-                <ShieldCheck className="h-3.5 w-3.5" />
-                {verifying ? 'Verificando…' : 'Verificar integridad'}
-              </button>
-
-              {integrityResult && (
-                <div className={`rounded-md px-3 py-2.5 text-xs space-y-1.5 border ${
-                  integrityResult.match
-                    ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-                    : 'bg-red-500/10 border-red-500/20 text-red-400'
-                }`}>
-                  <div className="flex items-center gap-1.5 font-medium">
-                    {integrityResult.match ? (
-                      <><ShieldCheck className="h-3.5 w-3.5" /> Integridad verificada</>
-                    ) : (
-                      <><ShieldAlert className="h-3.5 w-3.5" /> {integrityResult.reason ?? 'Hash no coincide'}</>
-                    )}
+              {/* Integrity */}
+              <div className="space-y-2">
+                <button
+                  onClick={handleVerifyIntegrity}
+                  disabled={verifying}
+                  className={`inline-flex items-center gap-1.5 ${btnSecondary} text-xs py-1.5`}
+                >
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  {verifying ? 'Verificando…' : 'Verificar integridad'}
+                </button>
+                {integrityResult && (
+                  <div className={`rounded-md px-3 py-2 text-xs border ${
+                    integrityResult.match
+                      ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                      : 'bg-red-500/10 border-red-500/20 text-red-400'
+                  }`}>
+                    <div className="flex items-center gap-1.5 font-medium">
+                      {integrityResult.match ? (
+                        <><ShieldCheck className="h-3.5 w-3.5" /> Integridad verificada — el archivo no ha sido modificado</>
+                      ) : (
+                        <><ShieldAlert className="h-3.5 w-3.5" /> {integrityResult.reason ?? 'El archivo ha sido modificado o no coincide con el original'}</>
+                      )}
+                    </div>
                   </div>
-                  {integrityResult.storedHash && (
-                    <p className="font-mono break-all opacity-70 text-[11px]">
-                      Almacenado: {integrityResult.storedHash}
-                    </p>
-                  )}
-                  {integrityResult.computedHash && !integrityResult.match && (
-                    <p className="font-mono break-all opacity-70 text-[11px]">
-                      Calculado:&nbsp;&nbsp;{integrityResult.computedHash}
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
+                )}
+              </div>
 
-            <div className="pt-1 space-y-1.5">
-              <p className={labelClass}>Reemplazar PDF firmado</p>
+              {/* Replace — collapsible feel via details */}
+              <details className="group">
+                <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground transition-colors list-none flex items-center gap-1">
+                  <span className="group-open:hidden">▸ Reemplazar PDF firmado</span>
+                  <span className="hidden group-open:inline">▾ Reemplazar PDF firmado</span>
+                </summary>
+                <div className="mt-3">
+                  <PdfUploadArea uploading={uploading} uploadError={uploadError} fileInputRef={fileInputRef} onFile={handlePdfUpload} />
+                </div>
+              </details>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">Ningún PDF cargado aún.</p>
               <PdfUploadArea uploading={uploading} uploadError={uploadError} fileInputRef={fileInputRef} onFile={handlePdfUpload} />
             </div>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">Ningún PDF cargado. Sube el contrato firmado para marcarlo como firmado.</p>
-            <PdfUploadArea uploading={uploading} uploadError={uploadError} fileInputRef={fileInputRef} onFile={handlePdfUpload} />
-          </div>
-        )}
-      </section>
-
-      {/* Audit log */}
-      {logs.length > 0 && (
-        <section className="space-y-3">
-          <h2 className={labelClass}>Historial de cambios</h2>
-          <div className="rounded-lg border border-border divide-y divide-border/60">
-            {logs.map((log) => (
-              <div key={log.id} className="px-4 py-3 flex gap-4 text-sm">
-                <span className="font-mono text-xs text-muted-foreground w-32 shrink-0 pt-0.5">
-                  {new Date(log.created_at).toLocaleString('es-CO', {
-                    dateStyle: 'short',
-                    timeStyle: 'short',
-                  })}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <span className="font-medium capitalize">{log.action}</span>
-                  {log.user_email && (
-                    <span className="text-muted-foreground"> · {log.user_email}</span>
-                  )}
-                  {Object.keys(log.details).length > 0 && (
-                    <p className="font-mono text-xs text-muted-foreground/70 truncate mt-0.5">
-                      {JSON.stringify(log.details)}
-                    </p>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
+          )}
         </section>
-      )}
-
-      {/* Actions */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <Link href="/contracts" className={btnSecondary}>← Volver</Link>
-        <button
-          onClick={handleDelete}
-          disabled={isPending}
-          className={`inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-md transition-colors disabled:opacity-50 ${
-            deleteConfirm
-              ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90'
-              : 'border border-border text-muted-foreground hover:text-foreground hover:bg-muted/30'
-          }`}
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-          {deleteConfirm ? 'Confirmar eliminación' : 'Eliminar'}
-        </button>
-        {deleteConfirm && (
-          <button onClick={() => setDeleteConfirm(false)} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-            Cancelar
-          </button>
         )}
+
+        {/* Audit log */}
+        {auditLogs.length > 0 && (
+          <section className="space-y-3">
+            <h2 className={labelClass}>Historial de cambios</h2>
+            <div className="rounded-lg border border-border divide-y divide-border/60">
+              {auditLogs.map((log) => (
+                <div key={log.id} className="px-4 py-3 flex gap-4 text-sm">
+                  <span className="font-mono text-xs text-muted-foreground w-32 shrink-0 pt-0.5">
+                    {new Date(log.created_at).toLocaleString('es-CO', {
+                      dateStyle: 'short',
+                      timeStyle: 'short',
+                    })}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <span className="font-medium capitalize">{log.action}</span>
+                    {log.user_email && (
+                      <span className="text-muted-foreground"> · {log.user_email}</span>
+                    )}
+                    {Object.keys(log.details).length > 0 && (
+                      <p className="font-mono text-xs text-muted-foreground/70 truncate mt-0.5">
+                        {JSON.stringify(log.details)}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Actions */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <Link href="/contracts" className={btnSecondary}>← Volver</Link>
+          <button
+            onClick={handleDelete}
+            disabled={isPending}
+            className={`inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-md transition-colors disabled:opacity-50 ${
+              deleteConfirm
+                ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90'
+                : 'border border-border text-muted-foreground hover:text-foreground hover:bg-muted/30'
+            }`}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            {deleteConfirm ? 'Confirmar eliminación' : 'Eliminar'}
+          </button>
+          {deleteConfirm && (
+            <button onClick={() => setDeleteConfirm(false)} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+              Cancelar
+            </button>
+          )}
+        </div>
       </div>
-    </div>
+    </>
   )
 }
 

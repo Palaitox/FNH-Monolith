@@ -9,11 +9,6 @@ import {
   deleteContract as dbDeleteContract,
   getEmployees,
   getEmployee,
-  upsertEmployee as dbUpsertEmployee,
-  bulkUpsertEmployees as dbBulkUpsertEmployees,
-  getContractTemplates,
-  createContractTemplate as dbCreateContractTemplate,
-  deleteContractTemplate as dbDeleteContractTemplate,
   peekNextContractNumber,
   attachSignedPdf,
   getStats,
@@ -21,12 +16,11 @@ import {
 } from '@/app/(shared)/lib/db'
 import type {
   ContractWithEmployee,
-  ContractTemplate,
-  Employee,
-  ExcelEmployee,
   AppSettings,
 } from '@/app/contracts/types'
+import type { Employee } from '@/app/(shared)/lib/employee-types'
 import { revalidatePath } from 'next/cache'
+import { redirect } from 'next/navigation'
 
 // ── Read ───────────────────────────────────────────────────────────────────
 
@@ -50,11 +44,6 @@ export async function getEmployeeById(id: string) {
   return getEmployee(supabase, id)
 }
 
-export async function listTemplates() {
-  const supabase = await createClient()
-  return getContractTemplates(supabase)
-}
-
 export async function nextContractNumber(): Promise<string> {
   const supabase = await createClient()
   return peekNextContractNumber(supabase)
@@ -74,7 +63,6 @@ export async function getAppSettings(): Promise<AppSettings> {
 
 export async function createContractAction(input: {
   employee_id: string
-  template_id: string
   tipo_contrato: string
   fecha_inicio: string
   fecha_terminacion?: string
@@ -93,6 +81,7 @@ export async function deleteContractAction(id: string) {
   const supabase = await createClient()
   await dbDeleteContract(supabase, id)
   revalidatePath('/contracts')
+  redirect('/contracts')
 }
 
 export async function attachSignedPdfAction(
@@ -105,55 +94,4 @@ export async function attachSignedPdfAction(
   const supabase = await createClient()
   await attachSignedPdf(supabase, contractId, pdfPath, filename, pdfHash)
   revalidatePath('/contracts')
-}
-
-// ── Employee mutations ─────────────────────────────────────────────────────
-
-export async function upsertEmployeeAction(emp: Omit<Employee, 'id' | 'created_at'>) {
-  await requireRole('coordinator')
-  const supabase = await createClient()
-  const result = await dbUpsertEmployee(supabase, emp)
-  revalidatePath('/contracts')
-  return result
-}
-
-// ── Template mutations ─────────────────────────────────────────────────────
-
-export async function uploadTemplateAction(
-  name: string,
-  storagePath: string,
-): Promise<ContractTemplate> {
-  await requireRole('coordinator')
-  const supabase = await createClient()
-  const template = await dbCreateContractTemplate(supabase, { name, storage_path: storagePath })
-  revalidatePath('/contracts/templates')
-  return template
-}
-
-export async function deleteTemplateAction(id: string, storagePath: string): Promise<void> {
-  await requireRole('admin')
-  const supabase = await createClient()
-  // Remove storage file first (best-effort — don't block on error)
-  await supabase.storage.from('contracts').remove([storagePath]).catch(() => {})
-  await dbDeleteContractTemplate(supabase, id)
-  revalidatePath('/contracts/templates')
-}
-
-// ── Excel import ───────────────────────────────────────────────────────────
-
-/**
- * Phase 2 of Excel import (ND-4): receives already-parsed, user-confirmed data.
- * No DB write happens before this action is called.
- */
-export async function confirmExcelImportAction(
-  employees: Omit<ExcelEmployee, 'source'>[],
-): Promise<{ created: number; updated: number }> {
-  await requireRole('coordinator')
-  const supabase = await createClient()
-  const stats = await dbBulkUpsertEmployees(
-    supabase,
-    employees.map((e) => ({ ...e, source: 'excel' as const })),
-  )
-  revalidatePath('/contracts')
-  return stats
 }

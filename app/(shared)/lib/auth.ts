@@ -95,7 +95,8 @@ export async function getUserRole(): Promise<'admin' | 'coordinator' | 'viewer' 
     .from('users')
     .select('role')
     .eq('id', claims.sub)
-    .single()
+    .is('deactivated_at', null)
+    .maybeSingle()
 
   return (data?.role as 'admin' | 'coordinator' | 'viewer') ?? null
 }

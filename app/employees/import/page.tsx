@@ -2,9 +2,9 @@
 
 import { useRef, useState, useTransition } from 'react'
 import Link from 'next/link'
-import { parseExcelEmployees, diffEmployees } from '@/app/contracts/lib/excel-importer'
-import { listEmployees, confirmExcelImportAction } from '@/app/contracts/actions/contracts'
-import type { ImportDiff, ExcelEmployee } from '@/app/contracts/types'
+import { parseExcelEmployees, diffEmployees } from '@/app/employees/lib/excel-importer'
+import { listEmployees, confirmEmployeeImportAction } from '@/app/employees/actions/employees'
+import type { ImportDiff, ExcelEmployee, Employee } from '@/app/employees/types'
 
 const labelClass = 'text-xs font-medium uppercase tracking-wide text-muted-foreground'
 
@@ -15,7 +15,7 @@ interface DoneResult {
   updated: number
 }
 
-export default function ImportPage() {
+export default function EmployeesImportPage() {
   const fileRef = useRef<HTMLInputElement>(null)
   const [phase, setPhase] = useState<Phase>('upload')
   const [isParsing, startParsing] = useTransition()
@@ -26,6 +26,16 @@ export default function ImportPage() {
   const [parsed, setParsed] = useState<ExcelEmployee[]>([])
   const [result, setResult] = useState<DoneResult | null>(null)
   const [sheetInfo, setSheetInfo] = useState<{ name: string; total: number } | null>(null)
+
+  function reset() {
+    setPhase('upload')
+    setDiff(null)
+    setParsed([])
+    setResult(null)
+    setError(null)
+    setWarnings([])
+    if (fileRef.current) fileRef.current.value = ''
+  }
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -54,7 +64,7 @@ export default function ImportPage() {
     if (!parsed.length) return
     startConfirming(async () => {
       try {
-        const res = await confirmExcelImportAction(parsed.map(({ source, ...e }) => e))
+        const res = await confirmEmployeeImportAction(parsed.map(({ source, ...e }) => e))
         setResult(res)
         setPhase('done')
       } catch (err) {
@@ -64,25 +74,25 @@ export default function ImportPage() {
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
+    <main className="max-w-5xl mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
-        <div className="space-y-0.5">
-          <h1 className="text-xl font-semibold tracking-tight">Importar empleados</h1>
-          <p className="text-sm text-muted-foreground">
-            Carga un archivo Excel con datos de empleados para actualizar la base.
+        <div>
+          <Link
+            href="/employees"
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            ← Empleados
+          </Link>
+          <h1 className="text-2xl font-semibold tracking-tight mt-2">Importar empleados</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Carga un Excel con datos de empleados. Revisa los cambios antes de confirmar.
           </p>
         </div>
-        <Link
-          href="/contracts"
-          className="rounded-md border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
-        >
-          Volver
-        </Link>
       </div>
 
       {/* Phase: upload */}
       {phase === 'upload' && (
-        <div className="rounded-lg border border-border bg-card p-8 flex flex-col items-center gap-4">
+        <div className="rounded-lg border border-border bg-card p-10 flex flex-col items-center gap-4">
           <div className="rounded-full border border-border bg-muted/20 p-4">
             <svg className="w-6 h-6 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -91,7 +101,7 @@ export default function ImportPage() {
           <div className="text-center space-y-1">
             <p className="text-sm font-medium">Selecciona un archivo .xlsx o .xls</p>
             <p className="text-xs text-muted-foreground">
-              El archivo debe tener columnas NOMBRE y CEDULA/DOCUMENTO
+              El archivo debe tener columnas NOMBRE y CEDULA / DOCUMENTO
             </p>
           </div>
           <input
@@ -104,7 +114,7 @@ export default function ImportPage() {
           <button
             onClick={() => fileRef.current?.click()}
             disabled={isParsing}
-            className="rounded-md bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
+            className="rounded-md bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-opacity"
           >
             {isParsing ? 'Procesando…' : 'Seleccionar archivo'}
           </button>
@@ -119,7 +129,6 @@ export default function ImportPage() {
       {/* Phase: preview */}
       {phase === 'preview' && diff && (
         <div className="space-y-5">
-          {/* Summary cards */}
           <div className="grid grid-cols-3 gap-3">
             <StatCard label="Nuevos" value={diff.new.length} color="text-emerald-400" />
             <StatCard label="Actualizados" value={diff.updated.length} color="text-amber-400" />
@@ -143,10 +152,9 @@ export default function ImportPage() {
             </div>
           )}
 
-          {/* New employees */}
           {diff.new.length > 0 && (
             <Section title="Empleados nuevos" count={diff.new.length} color="text-emerald-400">
-              <EmployeeTable rows={diff.new.map(e => ({
+              <EmployeeTable rows={diff.new.map((e) => ({
                 cedula: e.cedula,
                 name: e.full_name,
                 cargo: e.cargo,
@@ -155,17 +163,16 @@ export default function ImportPage() {
             </Section>
           )}
 
-          {/* Updated employees */}
           {diff.updated.length > 0 && (
             <Section title="Empleados actualizados" count={diff.updated.length} color="text-amber-400">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground bg-muted/40">
-                      <th className="px-3 py-2 text-left">Cédula</th>
-                      <th className="px-3 py-2 text-left">Campo</th>
-                      <th className="px-3 py-2 text-left">Antes</th>
-                      <th className="px-3 py-2 text-left">Después</th>
+                    <tr className="border-b border-border bg-muted/40">
+                      <th className={`px-3 py-2 text-left ${labelClass}`}>Cédula</th>
+                      <th className={`px-3 py-2 text-left ${labelClass}`}>Campo</th>
+                      <th className={`px-3 py-2 text-left ${labelClass}`}>Antes</th>
+                      <th className={`px-3 py-2 text-left ${labelClass}`}>Después</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
@@ -188,22 +195,15 @@ export default function ImportPage() {
             <button
               onClick={handleConfirm}
               disabled={isConfirming || (diff.new.length === 0 && diff.updated.length === 0)}
-              className="rounded-md bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
+              className="rounded-md bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-opacity"
             >
               {isConfirming
                 ? 'Importando…'
                 : `Confirmar importación (${diff.new.length + diff.updated.length} cambios)`}
             </button>
             <button
-              onClick={() => {
-                setPhase('upload')
-                setDiff(null)
-                setParsed([])
-                setError(null)
-                setWarnings([])
-                if (fileRef.current) fileRef.current.value = ''
-              }}
-              className="rounded-md border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
+              onClick={reset}
+              className="rounded-md border border-border px-4 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
             >
               Cancelar
             </button>
@@ -213,7 +213,7 @@ export default function ImportPage() {
 
       {/* Phase: done */}
       {phase === 'done' && result && (
-        <div className="rounded-lg border border-border bg-card p-8 flex flex-col items-center gap-4">
+        <div className="rounded-lg border border-border bg-card p-10 flex flex-col items-center gap-4">
           <div className="rounded-full border border-emerald-500/20 bg-emerald-500/10 p-4">
             <svg className="w-6 h-6 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -227,51 +227,37 @@ export default function ImportPage() {
           </div>
           <div className="flex gap-2">
             <button
-              onClick={() => {
-                setPhase('upload')
-                setDiff(null)
-                setParsed([])
-                setResult(null)
-                setError(null)
-                setWarnings([])
-                if (fileRef.current) fileRef.current.value = ''
-              }}
-              className="rounded-md border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
+              onClick={reset}
+              className="rounded-md border border-border px-4 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
             >
               Importar otro
             </button>
             <Link
-              href="/contracts/new"
-              className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+              href="/employees"
+              className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-opacity"
             >
-              Crear contrato
+              Ver empleados
             </Link>
           </div>
         </div>
       )}
-    </div>
+    </main>
   )
 }
 
 function StatCard({ label, value, color }: { label: string; value: number; color: string }) {
   return (
     <div className="rounded-lg border border-border bg-card px-4 py-3 space-y-1">
-      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className={labelClass}>{label}</p>
       <p className={`font-mono text-2xl font-semibold ${color}`}>{value}</p>
     </div>
   )
 }
 
 function Section({
-  title,
-  count,
-  color,
-  children,
+  title, count, color, children,
 }: {
-  title: string
-  count: number
-  color: string
-  children: React.ReactNode
+  title: string; count: number; color: string; children: React.ReactNode
 }) {
   return (
     <div className="rounded-lg border border-border bg-card overflow-hidden">
@@ -284,16 +270,18 @@ function Section({
   )
 }
 
-function EmployeeTable(props: { rows: { cedula: string; name: string; cargo: string; salario: number }[] }) {
+function EmployeeTable(props: {
+  rows: { cedula: string; name: string; cargo: string; salario: number }[]
+}) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground bg-muted/40">
-            <th className="px-3 py-2 text-left">Cédula</th>
-            <th className="px-3 py-2 text-left">Nombre</th>
-            <th className="px-3 py-2 text-left">Cargo</th>
-            <th className="px-3 py-2 text-right">Salario</th>
+          <tr className="border-b border-border bg-muted/40">
+            <th className={`px-3 py-2 text-left ${labelClass}`}>Cédula</th>
+            <th className={`px-3 py-2 text-left ${labelClass}`}>Nombre</th>
+            <th className={`px-3 py-2 text-left ${labelClass}`}>Cargo</th>
+            <th className={`px-3 py-2 text-right ${labelClass}`}>Salario</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-border">
@@ -303,7 +291,11 @@ function EmployeeTable(props: { rows: { cedula: string; name: string; cargo: str
               <td className="px-3 py-2 font-medium">{r.name}</td>
               <td className="px-3 py-2 text-muted-foreground">{r.cargo}</td>
               <td className="px-3 py-2 font-mono text-xs text-right">
-                {r.salario.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 })}
+                {r.salario.toLocaleString('es-CO', {
+                  style: 'currency',
+                  currency: 'COP',
+                  minimumFractionDigits: 0,
+                })}
               </td>
             </tr>
           ))}
@@ -313,9 +305,7 @@ function EmployeeTable(props: { rows: { cedula: string; name: string; cargo: str
   )
 }
 
-import type { Employee as DBEmployee } from '@/app/contracts/types'
-
-function ChangeRows({ old: o, incoming: n }: { old: DBEmployee; incoming: ExcelEmployee }) {
+function ChangeRows({ old: o, incoming: n }: { old: Employee; incoming: ExcelEmployee }) {
   const fields: { key: keyof ExcelEmployee; label: string }[] = [
     { key: 'full_name', label: 'Nombre' },
     { key: 'cargo', label: 'Cargo' },
@@ -325,9 +315,7 @@ function ChangeRows({ old: o, incoming: n }: { old: DBEmployee; incoming: ExcelE
   ]
 
   const changes = fields.filter((f) => {
-    const oldVal = o[f.key as keyof DBEmployee]
-    const newVal = n[f.key]
-    return String(oldVal ?? '') !== String(newVal ?? '')
+    return String(o[f.key as keyof Employee] ?? '') !== String(n[f.key] ?? '')
   })
 
   if (changes.length === 0) return null
@@ -346,7 +334,7 @@ function ChangeRows({ old: o, incoming: n }: { old: DBEmployee; incoming: ExcelE
           )}
           <td className="px-3 py-2 text-xs text-muted-foreground">{f.label}</td>
           <td className="px-3 py-2 font-mono text-xs text-destructive/80 line-through">
-            {String(o[f.key as keyof DBEmployee] ?? '—')}
+            {String(o[f.key as keyof Employee] ?? '—')}
           </td>
           <td className="px-3 py-2 font-mono text-xs text-emerald-400">
             {String(n[f.key] ?? '—')}
