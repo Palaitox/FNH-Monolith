@@ -74,7 +74,7 @@ export default function NewContractPage() {
 
       const pdfBlob = await generateContractPdf(vars, tipoContrato)
 
-      // Save contract record first — download is secondary
+      // Save contract record first
       const contract = await createContractAction({
         employee_id: employeeId,
         tipo_contrato: tipoContrato,
@@ -82,6 +82,21 @@ export default function NewContractPage() {
         fecha_terminacion: fechaTerminacion || undefined,
         forma_pago: formaPago || undefined,
       })
+
+      // Upload the unsigned draft PDF to Storage so it's accessible on all
+      // devices (on mobile the download is skipped, so without this the
+      // unsigned PDF would be lost entirely).
+      try {
+        const { createClient } = await import('@/lib/client')
+        const supabase = createClient()
+        const draftPath = `pdf/${contractNumber}_draft.pdf`
+        await supabase.storage
+          .from('contracts')
+          .upload(draftPath, pdfBlob, { contentType: 'application/pdf', upsert: true })
+        // Best-effort: if upload fails the contract record still exists
+      } catch {
+        // ignore upload failure — contract is saved, user can still sign
+      }
 
       // Trigger browser download only on desktop.
       // On iOS Safari, a.click() on a blob URL navigates the current page to

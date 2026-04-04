@@ -44,7 +44,14 @@ export default async function ContractsPage() {
               {contracts.map((c) => (
                 <tr key={c.id} className="hover:bg-muted/20 transition-colors">
                   <td className="px-4 py-3 font-mono text-xs hidden sm:table-cell">{c.contract_number ?? '—'}</td>
-                  <td className="px-4 py-3 font-medium">{c.employees?.full_name ?? '—'}</td>
+                  <td className="px-4 py-3">
+                    <span className="font-medium">{c.employees?.full_name ?? '—'}</span>
+                    {c.contract_number && (
+                      <span className="block font-mono text-xs text-muted-foreground sm:hidden">
+                        {c.contract_number}
+                      </span>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">{c.tipo_contrato ?? '—'}</td>
                   <td className="px-4 py-3 font-mono text-xs text-muted-foreground hidden sm:table-cell">{c.fecha_inicio ?? '—'}</td>
                   <td className="px-4 py-3">

@@ -40,6 +40,7 @@ export default function ContractDetail({ contract, auditLogs, employee, role }: 
   const [justSigned, setJustSigned] = useState(false)
 
   const [openingPdf, setOpeningPdf] = useState(false)
+  const [openPdfError, setOpenPdfError] = useState<string | null>(null)
   const [verifying, setVerifying] = useState(false)
   const [integrityResult, setIntegrityResult] = useState<{
     match: boolean
@@ -137,6 +138,7 @@ export default function ContractDetail({ contract, auditLogs, employee, role }: 
   async function handleOpenPdf() {
     if (!contract.pdf_path) return
     setOpeningPdf(true)
+    setOpenPdfError(null)
     // Open the window synchronously while still inside the click-handler's
     // user-gesture context. iOS Safari blocks window.open() called after
     // any await, treating it as an unsolicited popup.
@@ -146,16 +148,15 @@ export default function ContractDetail({ contract, auditLogs, employee, role }: 
       const { data, error } = await supabase.storage
         .from(STORAGE_BUCKET)
         .createSignedUrl(contract.pdf_path, 3600)
-      if (error || !data) throw new Error('No se pudo generar el enlace.')
+      if (error || !data) throw new Error('No se pudo generar el enlace al PDF.')
       if (newWindow) {
         newWindow.location.href = data.signedUrl
       } else {
-        // Popup was blocked — fall back to same-tab navigation
         window.location.href = data.signedUrl
       }
     } catch (e) {
       newWindow?.close()
-      console.error(e)
+      setOpenPdfError(e instanceof Error ? e.message : 'Error al abrir el PDF.')
     } finally {
       setOpeningPdf(false)
     }
@@ -295,6 +296,11 @@ export default function ContractDetail({ contract, auditLogs, employee, role }: 
                   {openingPdf ? 'Abriendo…' : 'Ver PDF'}
                 </button>
               </div>
+              {openPdfError && (
+                <p className="font-mono text-xs text-destructive bg-destructive/10 rounded px-3 py-1.5">
+                  {openPdfError}
+                </p>
+              )}
 
               {/* Integrity */}
               <div className="space-y-2">

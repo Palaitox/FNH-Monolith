@@ -1,7 +1,7 @@
 'use client'
 
 import { usePathname } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/client'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -25,6 +25,7 @@ export default function AppNav({ role }: Props) {
   const router = useRouter()
   const [isDark, setIsDark] = useState(true)
   const [menuOpen, setMenuOpen] = useState(false)
+  const headerRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
     setIsDark(document.documentElement.classList.contains('dark'))
@@ -34,6 +35,22 @@ export default function AppNav({ role }: Props) {
   useEffect(() => {
     setMenuOpen(false)
   }, [pathname])
+
+  // Close mobile menu when tapping outside the header
+  useEffect(() => {
+    if (!menuOpen) return
+    function handleClickOutside(e: MouseEvent | TouchEvent) {
+      if (headerRef.current && !headerRef.current.contains(e.target as Node)) {
+        setMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('touchstart', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('touchstart', handleClickOutside)
+    }
+  }, [menuOpen])
 
   function toggleTheme() {
     const next = !isDark
@@ -59,7 +76,7 @@ export default function AppNav({ role }: Props) {
   }
 
   return (
-    <header className="sticky top-0 z-40 border-b bg-background">
+    <header ref={headerRef} className="sticky top-0 z-40 border-b bg-background">
       <div className="flex h-14 items-center gap-4 px-4 md:px-6">
         <Link href="/dashboard" className="text-sm font-semibold tracking-tight shrink-0">
           FNH
