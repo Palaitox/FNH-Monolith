@@ -37,6 +37,7 @@ export default function ContractDetail({ contract, auditLogs, employee, role }: 
   const [showSignatureModal, setShowSignatureModal] = useState(false)
   const [signing, setSigning] = useState(false)
   const [signError, setSignError] = useState<string | null>(null)
+  const [justSigned, setJustSigned] = useState(false)
 
   const [openingPdf, setOpeningPdf] = useState(false)
   const [verifying, setVerifying] = useState(false)
@@ -101,6 +102,10 @@ export default function ContractDetail({ contract, auditLogs, employee, role }: 
       if (upErr) throw new Error(`Error al subir el PDF: ${upErr.message}`)
 
       await attachSignedPdfAction(contract.id, pdfPath, filename, hash)
+
+      // Show success banner before refresh — on mobile this is the only
+      // feedback since the download is skipped.
+      setJustSigned(true)
 
       // Trigger browser download — desktop only.
       // On iOS Safari, a.click() on a blob URL navigates the current page,
@@ -184,6 +189,19 @@ export default function ContractDetail({ contract, auditLogs, employee, role }: 
       )}
 
       <div className="px-4 py-6 sm:px-6 max-w-3xl mx-auto space-y-8">
+
+        {/* Success banner — shown after signing completes, before router.refresh() resolves */}
+        {justSigned && (
+          <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-4 flex items-start gap-3">
+            <CheckSquare className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" />
+            <div className="space-y-0.5">
+              <p className="text-sm font-semibold text-emerald-400">Contrato firmado exitosamente</p>
+              <p className="text-xs text-emerald-400/80">
+                El PDF firmado fue guardado. Puedes verlo en la sección de abajo.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
