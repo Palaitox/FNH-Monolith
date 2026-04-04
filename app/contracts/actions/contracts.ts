@@ -79,6 +79,37 @@ export async function createContractAction(input: {
 export async function deleteContractAction(id: string) {
   await requireRole('admin')
   const supabase = await createClient()
+
+  // If the contract is signed, write a permanent forense entry to system_logs
+  // before the cascade delete removes all contract_audit_logs rows.
+  const { data: contract } = await supabase
+    .from('contracts')
+    .select('estado, contract_number, pdf_filename, pdf_hash, signed_at, employees(full_name)')
+    .eq('id', id)
+    .maybeSingle()
+
+  if (contract?.estado === 'signed') {
+    const { data: { user } } = await supabase.auth.getUser()
+    // employees is returned as an array by the Supabase join
+    const employeesArr = contract.employees as unknown as { full_name: string }[] | null
+    const employeeName = Array.isArray(employeesArr) ? (employeesArr[0]?.full_name ?? null) : null
+    await supabase.from('system_logs').insert({
+      log_type: 'server_action',
+      payload: {
+        event: 'signed_contract_deleted',
+        contract_id: id,
+        contract_number: contract.contract_number ?? null,
+        employee_name: employeeName,
+        pdf_filename: contract.pdf_filename ?? null,
+        pdf_hash: contract.pdf_hash ?? null,
+        signed_at: contract.signed_at ?? null,
+        deleted_by_email: user?.email ?? null,
+        deleted_by_id: user?.id ?? null,
+        deleted_at: new Date().toISOString(),
+      },
+    })
+  }
+
   await dbDeleteContract(supabase, id)
   revalidatePath('/contracts')
   redirect('/contracts')

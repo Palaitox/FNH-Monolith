@@ -251,6 +251,8 @@ export async function attachSignedPdf(
   filename: string,
   pdfHash: string,
 ): Promise<void> {
+  const signedAt = new Date().toISOString()
+
   const { error } = await supabase
     .from('contracts')
     .update({
@@ -258,7 +260,7 @@ export async function attachSignedPdf(
       pdf_hash: pdfHash,
       pdf_filename: filename,
       estado: 'signed',
-      signed_at: new Date().toISOString(),
+      signed_at: signedAt,
     })
     .eq('id', contractId)
 
@@ -266,7 +268,34 @@ export async function attachSignedPdf(
     console.error('Error attaching signed PDF:', error)
     throw error
   }
-  await logContractAction(supabase, contractId, 'upload', { filename, hash: pdfHash })
+
+  // Operational audit log (cascade-deleted with contract)
+  await logContractAction(supabase, contractId, 'signed', { filename, hash: pdfHash })
+
+  // Permanent forense record in system_logs — no FK, survives contract deletion
+  const { data: contract } = await supabase
+    .from('contracts')
+    .select('contract_number, employee_id, employees(full_name)')
+    .eq('id', contractId)
+    .single()
+  const { data: { user } } = await supabase.auth.getUser()
+  // employees is returned as an array by the Supabase join
+  const employeesArr = (contract as unknown as { employees: { full_name: string }[] } | null)?.employees
+  const employeeName = Array.isArray(employeesArr) ? (employeesArr[0]?.full_name ?? null) : null
+  await supabase.from('system_logs').insert({
+    log_type: 'server_action',
+    payload: {
+      event: 'contract_signed',
+      contract_id: contractId,
+      contract_number: (contract as { contract_number: string | null } | null)?.contract_number ?? null,
+      employee_name: employeeName,
+      pdf_filename: filename,
+      pdf_hash: pdfHash,
+      signed_at: signedAt,
+      signed_by_email: user?.email ?? null,
+      signed_by_id: user?.id ?? null,
+    },
+  })
 }
 
 export async function deleteContract(

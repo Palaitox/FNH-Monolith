@@ -20,13 +20,14 @@ interface Props {
   contract: ContractWithEmployee
   auditLogs: ContractAuditLog[]
   employee: Employee | null
+  role: 'admin' | 'coordinator' | 'viewer' | null
 }
 
 const STORAGE_BUCKET = 'contracts'
 const labelClass = "text-xs font-medium uppercase tracking-wide text-muted-foreground"
 const btnSecondary = "rounded-md border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
 
-export default function ContractDetail({ contract, auditLogs, employee }: Props) {
+export default function ContractDetail({ contract, auditLogs, employee, role }: Props) {
   const router = useRouter()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isPending, startTransition] = useTransition()
@@ -357,22 +358,30 @@ export default function ContractDetail({ contract, auditLogs, employee }: Props)
         {/* Actions */}
         <div className="flex items-center gap-2 flex-wrap">
           <Link href="/contracts" className={btnSecondary}>← Volver</Link>
-          <button
-            onClick={handleDelete}
-            disabled={isPending}
-            className={`inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-md transition-colors disabled:opacity-50 ${
-              deleteConfirm
-                ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90'
-                : 'border border-border text-muted-foreground hover:text-foreground hover:bg-muted/30'
-            }`}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-            {deleteConfirm ? 'Confirmar eliminación' : 'Eliminar'}
-          </button>
-          {deleteConfirm && (
-            <button onClick={() => setDeleteConfirm(false)} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-              Cancelar
-            </button>
+          {role === 'admin' && (
+            <>
+              <button
+                onClick={handleDelete}
+                disabled={isPending}
+                className={`inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-md transition-colors disabled:opacity-50 ${
+                  deleteConfirm
+                    ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90'
+                    : 'border border-border text-muted-foreground hover:text-foreground hover:bg-muted/30'
+                }`}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                {deleteConfirm
+                  ? isSignedState
+                    ? '¿Eliminar contrato firmado? Esto es irreversible'
+                    : 'Confirmar eliminación'
+                  : 'Eliminar'}
+              </button>
+              {deleteConfirm && (
+                <button onClick={() => setDeleteConfirm(false)} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                  Cancelar
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>
