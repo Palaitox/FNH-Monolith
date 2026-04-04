@@ -125,9 +125,9 @@ export default function EmployeeDetail({ employee, contracts, role }: Props) {
   }
 
   return (
-    <main className="max-w-3xl mx-auto p-6 space-y-8">
+    <main className="max-w-3xl mx-auto px-4 py-6 sm:px-6 space-y-8">
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between gap-3">
         <div>
           <Link
             href="/employees"
@@ -178,7 +178,7 @@ export default function EmployeeDetail({ employee, contracts, role }: Props) {
               <label className={labelClass}>Cargo</label>
               <input className={fieldClass} value={cargo} onChange={(e) => setCargo(e.target.value)} />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className={labelClass}>Teléfono</label>
                 <input className={`${fieldClass} font-mono`} value={telefono} onChange={(e) => setTelefono(e.target.value)} />
@@ -200,7 +200,7 @@ export default function EmployeeDetail({ employee, contracts, role }: Props) {
                 <option value="prestacion_servicios">Prestación de servicios</option>
               </select>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className={labelClass}>Salario base (COP)</label>
                 <input className={`${fieldClass} font-mono`} value={salarioBase} onChange={(e) => setSalarioBase(e.target.value)} inputMode="numeric" />
@@ -243,8 +243,8 @@ export default function EmployeeDetail({ employee, contracts, role }: Props) {
               mono: true,
             },
           ].map(({ label, value, mono }) => (
-            <div key={label} className="flex items-center px-5 py-3 gap-4">
-              <span className={`w-44 shrink-0 ${labelClass}`}>{label}</span>
+            <div key={label} className="flex flex-col sm:flex-row sm:items-center px-5 py-3 gap-0.5 sm:gap-4">
+              <span className={`sm:w-44 sm:shrink-0 ${labelClass}`}>{label}</span>
               <span className={`text-sm ${mono ? 'font-mono' : ''}`}>{value}</span>
             </div>
           ))}
@@ -265,13 +265,13 @@ export default function EmployeeDetail({ employee, contracts, role }: Props) {
         {contracts.length === 0 ? (
           <p className="text-sm text-muted-foreground">Sin contratos registrados.</p>
         ) : (
-          <div className="rounded-lg border border-border overflow-hidden">
+          <div className="rounded-lg border border-border overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/40">
-                  <th className={`px-4 py-2.5 text-left ${labelClass}`}>N°</th>
-                  <th className={`px-4 py-2.5 text-left ${labelClass}`}>Tipo</th>
-                  <th className={`px-4 py-2.5 text-left ${labelClass}`}>Inicio</th>
+                  <th className={`px-4 py-2.5 text-left ${labelClass} hidden sm:table-cell`}>N°</th>
+                  <th className={`px-4 py-2.5 text-left ${labelClass} hidden sm:table-cell`}>Tipo</th>
+                  <th className={`px-4 py-2.5 text-left ${labelClass} hidden sm:table-cell`}>Inicio</th>
                   <th className={`px-4 py-2.5 text-left ${labelClass}`}>Estado</th>
                   <th className="px-4 py-2.5" />
                 </tr>
@@ -279,11 +279,11 @@ export default function EmployeeDetail({ employee, contracts, role }: Props) {
               <tbody className="divide-y divide-border">
                 {contracts.map((c) => (
                   <tr key={c.id} className="hover:bg-muted/20 transition-colors">
-                    <td className="px-4 py-3 font-mono text-muted-foreground">
+                    <td className="px-4 py-3 font-mono text-muted-foreground hidden sm:table-cell">
                       {c.contract_number ?? '—'}
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground">{c.tipo_contrato ?? '—'}</td>
-                    <td className="px-4 py-3 font-mono text-muted-foreground">
+                    <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">{c.tipo_contrato ?? '—'}</td>
+                    <td className="px-4 py-3 font-mono text-muted-foreground hidden sm:table-cell">
                       {c.fecha_inicio ?? '—'}
                     </td>
                     <td className="px-4 py-3">

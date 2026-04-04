@@ -1,7 +1,7 @@
 # FNH Monolith — Implementation Plan
 
-> **Last updated:** 2026-04-03
-> **Status:** Phase 0 ✅ complete | Phase 1 ✅ complete | Phase 2 ✅ complete | Phase 3 ✅ complete | Phase 4 ✅ complete | Phase 5 ✅ complete | Phase 6 ✅ complete | Phase 7 ✅ complete | Phase 8 ✅ complete | Phase 9 ✅ complete | Phase 10 ✅ complete | Phase 11 ✅ complete
+> **Last updated:** 2026-04-04
+> **Status:** Phase 0 ✅ complete | Phase 1 ✅ complete | Phase 2 ✅ complete | Phase 3 ✅ complete | Phase 4 ✅ complete | Phase 5 ✅ complete | Phase 6 ✅ complete | Phase 7 ✅ complete | Phase 8 ✅ complete | Phase 9 ✅ complete | Phase 10 ✅ complete | Phase 11 ✅ complete | Phase 12 ✅ complete
 
 ## Stack
 
@@ -27,7 +27,7 @@ app/
 │   └── components/             ← shared UI primitives
 │
 ├── (app)/
-│   ├── AppNav.tsx              ← 'use client'; nav: Panel/Contratos/Empleados/Buses + light/dark toggle + sign out
+│   ├── AppNav.tsx              ← 'use client'; nav: Panel/Contratos/Empleados/Buses + light/dark toggle + sign out; hamburger menu (md:hidden) for mobile (ND-40)
 │   └── layout.tsx              ← renders AppNav + children; used by pages inside (app)/
 │
 ├── auth/
@@ -138,7 +138,7 @@ app/
 | `fleet-compliance.ts` | 5-query batch: active drivers, active vehicles, driver reqs, vehicle reqs, all events; in-memory aggregation; per-category reqMaps (ND-26) |
 | `report-builder.ts` | Execute Query A + B; assemble `GA_F_094_Report` |
 | `api/cron/route.ts` | Daily batch: recalculate, detect Crítico transitions, notify, log; retry pass for failed rows |
-| `(app)/AppNav.tsx` | Navigation shell (Panel / Contratos / Empleados / Buses + light/dark toggle + sign out); 'use client'; active route via usePathname; `toggleTheme()` writes to localStorage + toggles `dark` class |
+| `(app)/AppNav.tsx` | Navigation shell (Panel / Contratos / Empleados / Buses + light/dark toggle + sign out); 'use client'; active route via usePathname; `toggleTheme()` writes to localStorage + toggles `dark` class; hamburger menu (md:hidden) with full dropdown on mobile (ND-40) |
 | `dashboard/layout.tsx`, `contracts/layout.tsx`, `buses/layout.tsx`, `employees/layout.tsx` | Thin per-segment wrappers that inject AppNav into pages outside the `(app)/` route group |
 | `(shared)/lib/employee-types.ts` | Shared kernel: Employee, JornadaLaboral, ExcelEmployee, ExcelImportResult, ImportDiff — imported by both employees/ and contracts/ (ND-28) |
 | `employees/actions/employees.ts` | All employee Server Actions; createEmployeeAction uses explicit INSERT (ND-30); deleteEmployeeAction is admin-only + zero-contracts guard (ND-29) |
@@ -232,7 +232,7 @@ app/
 - **Dark mode default**: `dark` class on `<html>` in root layout; light mode available but dark is the app default
 - **Typography**: `Geist` (sans-serif) for all body/UI text; `Geist_Mono` for contract numbers, cédulas, placas, fechas, hashes, error codes, status tags — `font-mono` applied per-element
 - **Navigation** (`AppNav.tsx`): sticky + `backdrop-blur-sm`; logo "FNH" in cyan with `tracking-widest uppercase`; active link = `text-primary` only (no background highlight); height reduced to `h-12`
-- **Page layout**: all pages use `max-w-5xl mx-auto` (lists) or `max-w-3xl mx-auto` (detail/forms); consistent `p-6 space-y-8`
+- **Page layout**: all pages use `max-w-5xl mx-auto` (lists) or `max-w-3xl mx-auto` (detail/forms); `px-4 py-6 sm:px-6` outer padding (Phase 12 mobile update from `p-6`)
 - **Labels**: all form and section labels use `text-xs font-medium uppercase tracking-wide text-muted-foreground`
 - **Buttons**: primary = `bg-primary text-primary-foreground font-semibold`; secondary = `border border-border text-muted-foreground hover:text-foreground hover:bg-muted/30`
 - **Tables**: header row `text-xs uppercase tracking-wide text-muted-foreground bg-muted/40`; row hover `bg-muted/20`; "Ver →" links transition to `text-primary`
@@ -426,6 +426,46 @@ app/
 #### Known minor gaps (not bugs)
 - `handleOpenPdf` catches errors with `console.error` only — no user-visible message if signed URL creation fails
 - `integrityResult` client state is not cleared on `router.refresh()` — stale only if user ran a check before signing; next check overwrites it
+
+### Phase 12 — Mobile Responsive Layout ✅
+
+**Branch:** `mobile`
+
+#### AppNav.tsx
+- Added `menuOpen` state + `useEffect` to close on pathname change
+- Desktop nav: `hidden md:flex` on all nav links + right-side actions
+- Mobile hamburger: `md:hidden` button with `<Menu>` / `<X>` from lucide-react
+- Mobile dropdown: renders below header when `menuOpen`; contains all nav links + theme toggle + sign out
+- Header: `sticky top-0 z-40`
+
+#### Global padding pattern (ND-40)
+- All page outer containers changed from `p-6` to `px-4 py-6 sm:px-6`
+- `auth/login/page.tsx`: added `px-4` to outer div
+
+#### Tables (all list pages)
+- Tables wrapped in `overflow-x-auto` container
+- Non-essential columns tagged `hidden sm:table-cell` on both `<th>` and `<td>`:
+  - `contracts/page.tsx`: hides N° Contrato, Tipo, Fecha inicio
+  - `employees/page.tsx`: hides Cédula, Cargo, Salario base
+  - `buses/drivers/page.tsx`: hides Cédula
+  - `buses/verification/page.tsx`: hides Fecha verificación
+
+#### Form grids
+- `grid-cols-2` → `grid-cols-1 sm:grid-cols-2` in:
+  - `employees/new/page.tsx` (Teléfono/Correo + Salario/Auxilio grids)
+  - `employees/[id]/EmployeeDetail.tsx` (same grids in edit form)
+  - `contracts/new/page.tsx` (date fields grid)
+
+#### Header rows (list + detail pages)
+- `flex items-center justify-between` → `flex flex-col sm:flex-row sm:items-center justify-between gap-3` on all module list pages (contracts, employees, buses/drivers, buses/vehicles, buses/verification)
+
+#### Detail pages
+- `ContractDetail.tsx` Row sub-component: `flex-col sm:flex-row sm:items-center` + `sm:w-44 sm:shrink-0` on label
+- `EmployeeDetail.tsx` read-only info rows: `flex-col sm:flex-row sm:items-center` + `sm:w-44 sm:shrink-0`
+- `EmployeeDetail.tsx` contracts table: `overflow-x-auto`; all columns hidden except Estado + action on mobile
+- `VehicleDetail.tsx` summary grid: `grid-cols-4` → `grid-cols-2 sm:grid-cols-4`
+- `buses/verification/[id]/page.tsx` report header: `grid-cols-3` → `grid-cols-1 sm:grid-cols-3`
+- `DriverDetail.tsx` + `VehicleDetail.tsx` document form expiry inputs: `w-36` → `w-full sm:w-36`; row layout `flex-col sm:flex-row sm:items-center`
 
 ## Rescued Assets from Existing Codebase
 

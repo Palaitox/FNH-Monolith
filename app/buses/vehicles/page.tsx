@@ -6,7 +6,7 @@ export default async function VehiclesPage() {
   const vehicles = await listVehicles()
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
+    <div className="px-4 py-6 sm:px-6 max-w-5xl mx-auto space-y-6">
       <div className="space-y-4">
         <Link
           href="/buses"
@@ -14,7 +14,7 @@ export default async function VehiclesPage() {
         >
           ← Buses
         </Link>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="space-y-0.5">
             <h1 className="text-xl font-semibold tracking-tight">Vehículos</h1>
             <p className="text-sm text-muted-foreground">{vehicles.length} activos</p>
@@ -34,7 +34,7 @@ export default async function VehiclesPage() {
           <p className="text-sm text-muted-foreground">No hay vehículos registrados.</p>
         </div>
       ) : (
-        <div className="rounded-lg border border-border bg-card overflow-hidden">
+        <div className="rounded-lg border border-border bg-card overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground bg-muted/40">

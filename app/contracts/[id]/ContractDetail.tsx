@@ -160,7 +160,7 @@ export default function ContractDetail({ contract, auditLogs, employee }: Props)
         />
       )}
 
-      <div className="p-6 max-w-3xl mx-auto space-y-8">
+      <div className="px-4 py-6 sm:px-6 max-w-3xl mx-auto space-y-8">
 
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
@@ -362,9 +362,9 @@ export default function ContractDetail({ contract, auditLogs, employee }: Props)
 
 function Row({ label, value, mono }: { label: string; value: string | null | undefined; mono?: boolean }) {
   return (
-    <div className="flex items-center px-4 py-3 text-sm gap-6">
-      <span className="w-44 shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</span>
-      <span className={mono ? 'font-mono' : ''}>{value ?? '—'}</span>
+    <div className="flex flex-col sm:flex-row sm:items-center px-4 py-3 text-sm gap-0.5 sm:gap-6">
+      <span className="sm:w-44 sm:shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</span>
+      <span className={mono ? 'font-mono text-xs sm:text-sm' : ''}>{value ?? '—'}</span>
     </div>
   )
 }

@@ -48,7 +48,7 @@ export default function NewVerificationPage() {
   }
 
   return (
-    <div className="p-6 max-w-md mx-auto space-y-6">
+    <div className="px-4 py-6 sm:px-6 max-w-md mx-auto space-y-6">
       <div className="space-y-0.5">
         <h1 className="text-xl font-semibold tracking-tight">Nueva verificación</h1>
       </div>

@@ -22,7 +22,7 @@ export default async function VerificationReportPage({ params }: Props) {
   })
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-8">
+    <div className="px-4 py-6 sm:px-6 max-w-4xl mx-auto space-y-8">
 
       {/* Report header */}
       <div className="rounded-lg border border-border bg-card p-5 space-y-4">
@@ -36,7 +36,7 @@ export default async function VerificationReportPage({ params }: Props) {
           </p>
         </div>
 
-        <div className="grid grid-cols-3 gap-6 pt-1">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-1">
           <div className="space-y-1">
             <p className={labelClass}>Conductor</p>
             <p className="font-medium">{report.driver.full_name}</p>
