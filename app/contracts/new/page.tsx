@@ -74,15 +74,7 @@ export default function NewContractPage() {
 
       const pdfBlob = await generateContractPdf(vars, tipoContrato)
 
-      // Trigger browser download
-      const url = URL.createObjectURL(pdfBlob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `contrato_${contractNumber}_${selectedEmployee.cedula}.pdf`
-      a.click()
-      URL.revokeObjectURL(url)
-
-      // Save contract record
+      // Save contract record first — download is secondary
       const contract = await createContractAction({
         employee_id: employeeId,
         tipo_contrato: tipoContrato,
@@ -90,6 +82,26 @@ export default function NewContractPage() {
         fecha_terminacion: fechaTerminacion || undefined,
         forma_pago: formaPago || undefined,
       })
+
+      // Trigger browser download only on desktop.
+      // On iOS Safari, a.click() on a blob URL navigates the current page to
+      // blob:... (the download attribute is ignored), which shows "Load Failed"
+      // and kills all subsequent JS — including router.push. Skip on mobile.
+      const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+      if (!isMobile) {
+        try {
+          const url = URL.createObjectURL(pdfBlob)
+          const a = document.createElement('a')
+          a.href = url
+          a.download = `contrato_${contractNumber}_${selectedEmployee.cedula}.pdf`
+          document.body.appendChild(a)
+          a.click()
+          document.body.removeChild(a)
+          setTimeout(() => URL.revokeObjectURL(url), 1000)
+        } catch {
+          // ignore — contract is already saved
+        }
+      }
 
       router.push(`/contracts/${contract.id}`)
     } catch (e) {
