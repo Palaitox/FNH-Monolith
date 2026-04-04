@@ -1,6 +1,6 @@
-# FNH Modular Monolith — Final System v4.9
+# FNH Modular Monolith — Final System v5.0
 
-> **Last updated:** 2026-04-03
+> **Last updated:** 2026-04-04
 > **Applied migrations:** 0001_initial.sql, 0002_extend_contracts.sql, 0003_seed_document_requirements.sql, 0004_rls.sql, 0005_storage_policies.sql, 0006_update_vehicle_requirements.sql, 0007_servitrans_driver_requirements.sql, 0008_employees_softdelete.sql, 0009_users_softdelete.sql, 0010_drop_contract_templates.sql
 > For the authoritative schema file see `Schema.sql.md`.
 
@@ -285,6 +285,7 @@ See `decisions.md.md` for the full register with rationale. Summary of IDs:
 | ND-37 | `ContractVars.firma?: string` (base64 PNG); `buildContractVars()` never sets it; callers merge externally; `SigSpace` component renders placeholder or embedded image |
 | ND-38 | `ContractDetail` uses props directly (no `useState` wrappers); `router.refresh()` passes fresh server props through to the Client Component |
 | ND-39 | "PDF firmado" section gated on `(isSignedState \|\| !!contract.pdf_path)` — hidden on pending contracts with no PDF |
+| ND-40 | Mobile-first responsive layout: `px-4 py-6 sm:px-6` outer padding; hamburger nav below `md`; `overflow-x-auto` + `hidden sm:table-cell` on tables; `grid-cols-1 sm:grid-cols-2` for form grids; `flex-col sm:flex-row sm:items-center` for headers and info rows |
 
 ---
 
@@ -476,7 +477,7 @@ app/
 | `compliance-checker.ts` | Aggregate current document statuses for a VerificationPair |
 | `report-builder.ts` | Execute Query A + B; assemble `GA_F_094_Report` |
 | `api/cron/route.ts` | Daily batch: recalculate statuses, detect transitions, fire notifications, write system_logs |
-| `(app)/AppNav.tsx` | Navigation shell; 'use client'; active link via usePathname; sign out via supabase.auth.signOut(); "Admin" link rendered only when `role === 'admin'` |
+| `(app)/AppNav.tsx` | Navigation shell; 'use client'; active link via usePathname; sign out; "Admin" link for admins only; sticky top-0 z-40; hamburger menu (md:hidden) with dropdown on mobile — all nav links + right actions are `hidden md:flex` on desktop (ND-40) |
 | `admin/layout.tsx` | Hard-redirects non-admins to `/dashboard`; admin-only gate for the entire `admin/` segment |
 | `admin/actions/users.ts` | All user management Server Actions; all gated with `requireRole('admin')`; invite via Auth Admin API with rollback (ND-33); self-guard on role change + deactivation (ND-34) |
 | `admin/users/[id]/UserDetail.tsx` | Inline role editor (dropdown + save/cancel); deactivate/reactivate with confirmation step; "Tú" badge; danger zone hidden for self |
@@ -602,3 +603,4 @@ cron_run():
 | v4.7 | Phase 9 complete — `employees/` module as full bounded context: list with search/filter/inactive toggle, create (explicit INSERT, ND-30), detail+edit, deactivate/reactivate, admin hard-delete with contracts guard; Excel import moved from `contracts/` to `employees/`; `Employee` type promoted to `(shared)/lib/employee-types.ts` (ND-28); `deactivated_at` soft-delete on `employees` table via migration 0008 (ND-29); `bulkUpsertEmployees` rewritten from N+1 to 2-query pattern; AppNav adds Empleados link + light/dark toggle; `globals.css` adds `font-size: 115%` for accessibility; flash-free theme via inline script + `suppressHydrationWarning` (ND-31); added ND-28 through ND-31 | Feature |
 | v4.8 | Phase 10 complete — `admin/` user management module: three roles (admin/coordinator/viewer) with Spanish labels; invite via `auth.admin.inviteUserByEmail()` with rollback on DB failure (ND-33); `public.users` gains `email` + `deactivated_at` columns via migration 0009; deactivation calls `signOut(id)` immediately (ND-32); `getUserRole()` filters out deactivated users; self-protection guard in Server Actions + UI (ND-34); `admin/layout.tsx` redirects non-admins to `/dashboard`; AppNav shows "Admin" link only for admin role; ESLint boundaries updated with `admin` element type + cross-module rules; added ND-32 through ND-34 | Feature |
 | v4.9 | Phase 11 complete — PDF-native generation: `@react-pdf/renderer` v4 replaces docxtemplater+.docx pipeline; `contract-pdf.tsx` encodes all three contract types + appendices (AutorizacionImagenes, DatosPersonales, Confidencialidad, Preaviso) as React PDF components; `pdf-vars.ts` builds `ContractVars`; `contract_templates` table dropped (migration 0010, ND-35); browser-only dynamic imports for renderer and signature_pad (ND-36); `firma?: string` in ContractVars + `SigSpace` placeholder/embed component (ND-37); `SignatureModal.tsx` full-screen canvas with devicePixelRatio-aware resize; signing flow: capture → generate signed PDF → browser download + Storage upload + DB update → `router.refresh()`; `ContractDetail` uses props directly so refresh propagates (ND-38); PDF section hidden on pending contracts (ND-39); PGRST116 silenced in `getContract`; `deleteContractAction` redirects after deletion; pako v1 override in package.json; added ND-35 through ND-39 | Feature |
+| v5.0 | Phase 12 complete — Mobile/responsive layout (`mobile` branch): `p-6` → `px-4 py-6 sm:px-6` across all 19 pages/components; `AppNav.tsx` hamburger menu pattern (`md:hidden` toggle, `hidden md:flex` desktop links, dropdown with all nav + theme + sign out); all tables wrapped in `overflow-x-auto` with `hidden sm:table-cell` on non-essential columns (N°/Tipo/Inicio in contracts; Cédula/Cargo/Salario in employees; Cédula in drivers; Fecha in verification; all but Estado in employee contracts table); form grids `grid-cols-1 sm:grid-cols-2`; list headers `flex-col sm:flex-row sm:items-center`; detail info rows `flex-col sm:flex-row`; VehicleDetail summary `grid-cols-2 sm:grid-cols-4`; verification report header `grid-cols-1 sm:grid-cols-3`; document form date inputs full-width on mobile; added ND-40 | Mobile UI |
