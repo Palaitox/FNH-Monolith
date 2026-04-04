@@ -1,7 +1,7 @@
 # FNH Monolith — Implementation Plan
 
 > **Last updated:** 2026-04-04
-> **Status:** Phase 0 ✅ complete | Phase 1 ✅ complete | Phase 2 ✅ complete | Phase 3 ✅ complete | Phase 4 ✅ complete | Phase 5 ✅ complete | Phase 6 ✅ complete | Phase 7 ✅ complete | Phase 8 ✅ complete | Phase 9 ✅ complete | Phase 10 ✅ complete | Phase 11 ✅ complete | Phase 12 ✅ complete
+> **Status:** Phase 0 ✅ | Phase 1 ✅ | Phase 2 ✅ | Phase 3 ✅ | Phase 4 ✅ | Phase 5 ✅ | Phase 6 ✅ | Phase 7 ✅ | Phase 8 ✅ | Phase 9 ✅ | Phase 10 ✅ | Phase 11 ✅ | Phase 12 ✅ | Phase 12.x hotfixes ✅
 
 ## Stack
 
@@ -466,6 +466,26 @@ app/
 - `VehicleDetail.tsx` summary grid: `grid-cols-4` → `grid-cols-2 sm:grid-cols-4`
 - `buses/verification/[id]/page.tsx` report header: `grid-cols-3` → `grid-cols-1 sm:grid-cols-3`
 - `DriverDetail.tsx` + `VehicleDetail.tsx` document form expiry inputs: `w-36` → `w-full sm:w-36`; row layout `flex-col sm:flex-row sm:items-center`
+
+### Phase 12.x — iOS Hotfixes ✅
+
+Three iOS Safari bugs found during real-device testing. All fixes are mobile-only; zero desktop behavior change. See ND-41.
+
+#### contracts/new/page.tsx
+- `createContractAction` moved **before** the download attempt
+- Download skipped entirely on mobile (`/Mobi|Android|iPhone|iPad|iPod/i` UA check)
+- Desktop: unchanged (download still triggers after save)
+
+#### contracts/[id]/SignatureModal.tsx
+- `resizeCanvas()` now calls `pad.toData()` before clearing and `pad.fromData()` after
+- Prevents iOS browser-toolbar `window.resize` events from wiping the signature mid-session
+- First "Confirmar firma" tap now works reliably
+
+#### contracts/[id]/ContractDetail.tsx
+- `attachSignedPdfAction` (marks contract signed) moved **before** the download attempt
+- Download skipped on mobile — same UA check as above
+- `handleOpenPdf`: `window.open('', '_blank')` called synchronously within the click handler; `newWindow.location.href` set after the signed URL resolves; blank tab closed on error
+- Nav link order changed: Panel → Empleados → Contratos → Buses
 
 ## Rescued Assets from Existing Codebase
 
