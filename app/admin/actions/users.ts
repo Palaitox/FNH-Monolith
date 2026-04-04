@@ -56,7 +56,12 @@ export async function inviteUserAction(input: {
   const supabase = await createSupabaseServiceClient()
 
   // Step 1: invite via Supabase Auth (sends setup email to the user)
-  const { data, error: authError } = await supabase.auth.admin.inviteUserByEmail(email)
+  // redirectTo sends the user back to our app to set their password,
+  // not to the Supabase hosted UI.
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://fnh-monolith.vercel.app'
+  const { data, error: authError } = await supabase.auth.admin.inviteUserByEmail(email, {
+    redirectTo: `${appUrl}/auth/callback?next=/auth/set-password`,
+  })
   if (authError) {
     if (authError.message.includes('already been registered')) {
       throw new Error('Ya existe una cuenta con ese correo.')
