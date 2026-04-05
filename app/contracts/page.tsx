@@ -1,9 +1,10 @@
 import Link from 'next/link'
 import { listContracts } from '@/app/contracts/actions/contracts'
+import { getUserRole } from '@/app/(shared)/lib/auth'
 import { FileText, CheckSquare, Clock } from 'lucide-react'
 
 export default async function ContractsPage() {
-  const contracts = await listContracts()
+  const [contracts, role] = await Promise.all([listContracts(), getUserRole()])
 
   return (
     <div className="px-4 py-6 sm:px-6 max-w-5xl mx-auto space-y-6">
@@ -12,14 +13,16 @@ export default async function ContractsPage() {
           <h1 className="text-xl font-semibold tracking-tight">Contratos</h1>
           <p className="text-sm text-muted-foreground">{contracts.length} en total</p>
         </div>
-        <div className="flex gap-2">
-          <Link
-            href="/contracts/new"
-            className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
-          >
-            + Nuevo contrato
-          </Link>
-        </div>
+        {role !== 'viewer' && (
+          <div className="flex gap-2">
+            <Link
+              href="/contracts/new"
+              className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+            >
+              + Nuevo contrato
+            </Link>
+          </div>
+        )}
       </div>
 
       {contracts.length === 0 ? (

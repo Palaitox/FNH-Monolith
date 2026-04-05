@@ -19,3 +19,4 @@ CREATE POLICY "users_delete_admin"
   ON public.users FOR DELETE
   TO authenticated
   USING (get_my_role() = 'admin');
+  

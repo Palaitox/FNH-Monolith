@@ -4,6 +4,7 @@ import {
   getVehicleComplianceAction,
   listDocumentRequirements,
 } from '@/app/buses/actions/buses'
+import { getUserRole } from '@/app/(shared)/lib/auth'
 import VehicleDetail from './VehicleDetail'
 
 interface Props {
@@ -13,13 +14,14 @@ interface Props {
 export default async function VehicleDetailPage({ params }: Props) {
   const { id } = await params
 
-  const [vehicle, compliance, requirements] = await Promise.all([
+  const [vehicle, compliance, requirements, role] = await Promise.all([
     getVehicleById(id),
     getVehicleComplianceAction(id),
     listDocumentRequirements('vehicle'),
+    getUserRole(),
   ])
 
   if (!vehicle) notFound()
 
-  return <VehicleDetail vehicle={vehicle} compliance={compliance} requirements={requirements} />
+  return <VehicleDetail vehicle={vehicle} compliance={compliance} requirements={requirements} role={role} />
 }

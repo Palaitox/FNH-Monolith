@@ -28,6 +28,8 @@ export interface ContractVars {
   valor_total_contrato: string
   /** Base64 PNG data URL of the captured signature. Undefined = show empty placeholder. */
   firma?: string
+  /** Employee's jornada label for Otro Sí title (e.g. "JORNADA COMPLETA") */
+  trabajador_jornada?: string
 }
 
 const MESES = [
@@ -138,5 +140,11 @@ export function buildContractVars(
     valor_total_contrato: valorTotal
       ? new Intl.NumberFormat('es-CO').format(valorTotal)
       : '',
+    trabajador_jornada:
+      employee.jornada_laboral === 'tiempo_completo'
+        ? 'JORNADA COMPLETA'
+        : employee.jornada_laboral === 'medio_tiempo'
+          ? 'JORNADA PARCIAL'
+          : 'PRESTACION DE SERVICIOS',
   }
 }

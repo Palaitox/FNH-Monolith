@@ -1,7 +1,23 @@
 # FNH Monolith — Implementation Plan
 
-> **Last updated:** 2026-04-04
-> **Status:** Phase 0 ✅ | Phase 1 ✅ | Phase 2 ✅ | Phase 3 ✅ | Phase 4 ✅ | Phase 5 ✅ | Phase 6 ✅ | Phase 7 ✅ | Phase 8 ✅ | Phase 9 ✅ | Phase 10 ✅ | Phase 11 ✅ | Phase 12 ✅ | Phase 12.x hotfixes ✅
+## Current State Snapshot
+
+> Actualizar al cerrar cada sesión. Para detalles, ver las secciones de fase correspondientes abajo.
+
+- **Fase actual:** Phase 13 🔄 (en curso)
+- **Último cambio importante:** Arquitectura de sesión recursiva — `CLAUDE.md`, `docs/session-handoff.md`, Quick Orientation en systemDesign, este snapshot (2026-04-05)
+- **Pendientes inmediatos:**
+  - Verificar que PDF "Otro Sí" genera 2 páginas correctamente en producción
+  - ✅ ND-44 registrada formalmente en `decisions.md.md`
+  - ✅ Arquitectura de sesión recursiva completa (CLAUDE.md, docs/session-handoff.md, Quick Orientation, Current State Snapshot)
+  - Actualizar backbone docs cuando Phase 13 cierre completamente + hacer PR a `main`
+- **Bugs abiertos conocidos:** ninguno confirmado
+- **Siguiente milestone:** Phase 13 completa → commit + PR a `main`
+
+---
+
+> **Last updated:** 2026-04-05
+> **Status:** Phase 0 ✅ | Phase 1 ✅ | Phase 2 ✅ | Phase 3 ✅ | Phase 4 ✅ | Phase 5 ✅ | Phase 6 ✅ | Phase 7 ✅ | Phase 8 ✅ | Phase 9 ✅ | Phase 10 ✅ | Phase 11 ✅ | Phase 12 ✅ | Phase 12.x hotfixes ✅ | Phase 13 (user mgmt improvements) 🔄
 
 ## Stack
 
@@ -102,16 +118,26 @@ app/
 │
 ├── admin/
 │   ├── actions/
-│   │   └── users.ts            ← 'use server': listUsersAction, getUserAction, inviteUserAction, updateRoleAction, deactivateUserAction, reactivateUserAction
+│   │   └── users.ts            ← 'use server': listUsersAction, getUserAction, inviteUserAction, updateRoleAction, deactivateUserAction, reactivateUserAction, deleteUserAction (ND-42)
 │   ├── users/
 │   │   ├── new/
 │   │   │   └── page.tsx        ← invite form: name, email, role selector + role description text
 │   │   └── [id]/
 │   │       ├── page.tsx        ← Server Component; fetches user + claims in parallel
-│   │       └── UserDetail.tsx  ← 'use client'; inline role editor, deactivate/reactivate confirmation, "Tú" badge, self-guard (ND-34)
+│   │       └── UserDetail.tsx  ← 'use client'; inline role editor, deactivate/reactivate confirmation, hard-delete with two-click confirmation (ND-42), "Tú" badge, self-guard (ND-34)
 │   ├── layout.tsx              ← redirects non-admin to /dashboard
 │   ├── page.tsx                ← user list: 3 stats cards, active table, collapsed inactive section
 │   └── types.ts                ← AppUserRole, AppUser, ROLE_LABELS, ROLE_COLORS
+│
+├── auth/
+│   ├── callback/
+│   │   └── route.ts            ← PKCE code exchange → session → redirect to `next` param (fallback: /dashboard)
+│   ├── invite/
+│   │   └── page.tsx            ← 'use client'; reads hash tokens (implicit flow) OR code param (PKCE) → setSession/exchangeCodeForSession → /auth/set-password (ND-43)
+│   ├── set-password/
+│   │   └── page.tsx            ← 'use client'; set password for newly invited user → /dashboard
+│   └── login/
+│       └── page.tsx            ← Supabase signInWithPassword form
 │
 └── api/
     └── cron/
@@ -359,13 +385,14 @@ app/
 - `updateRoleAction(id, role)` — updates role; guards `claims.sub === id` (ND-34)
 - `deactivateUserAction(id)` — sets `deactivated_at`; calls `supabase.auth.admin.signOut(id)` to immediately invalidate all sessions (ND-32); guards self-deactivation (ND-34)
 - `reactivateUserAction(id)` — clears `deactivated_at`
+- `deleteUserAction(id)` — deletes `public.users` row first, then `auth.users` via Admin API; guards self-deletion (ND-42)
 
 #### Pages and components
 - `app/admin/layout.tsx` — `getUserRole()` at layout level; redirects non-admin to `/dashboard`
 - `app/admin/page.tsx` — user list with 3 stats cards (activos/coordinadores/consultores); active users in table; inactive users in collapsed section
 - `app/admin/users/new/page.tsx` — invite form with name, email, role selector; per-role description text; calls `inviteUserAction`
 - `app/admin/users/[id]/page.tsx` — Server Component; `getUserAction(id)` + `getUserClaims()` in parallel; passes `currentUserId` to `UserDetail`
-- `app/admin/users/[id]/UserDetail.tsx` — Client Component; inline role editor (dropdown + save/cancel); deactivate/reactivate with confirmation step; "Tú" badge when `isSelf`; danger zone entirely hidden for self (ND-34)
+- `app/admin/users/[id]/UserDetail.tsx` — Client Component; inline role editor (dropdown + save/cancel); deactivate/reactivate with confirmation step; hard-delete with two-click confirmation (ND-42); "Tú" badge when `isSelf`; danger zone entirely hidden for self (ND-34)
 
 #### ESLint boundaries update
 - `eslint.config.mjs` — `{ type: 'admin', pattern: 'app/admin/**/*' }` element added; rule: `admin/` disallows importing from `contracts`, `buses`, `employees`
@@ -486,6 +513,31 @@ Three iOS Safari bugs found during real-device testing. All fixes are mobile-onl
 - Download skipped on mobile — same UA check as above
 - `handleOpenPdf`: `window.open('', '_blank')` called synchronously within the click handler; `newWindow.location.href` set after the signed URL resolves; blank tab closed on error
 - Nav link order changed: Panel → Empleados → Contratos → Buses
+
+### Phase 13 — User Management Improvements 🔄
+
+#### Hard delete for users (ND-42) ✅
+- `deleteUserAction(id)` added to `app/admin/actions/users.ts` — deletes `public.users` row (FK order), then `auth.users` via `supabase.auth.admin.deleteUser()` (service client); guards self-deletion; `revalidatePath('/admin')`
+- `UserDetail.tsx` — added `confirmDelete` state; delete section in danger zone (always visible for other users regardless of active/inactive); bolder border styling vs deactivate button; on success navigates to `/admin`
+
+#### Invite flow fix — PKCE + implicit token handling (ND-43) ✅
+- **Root cause**: `inviteUserByEmail` sends email with hash tokens (implicit flow). The original `/auth/callback` route handler runs server-side and never receives the URL hash — `code` was always null → fell back to `/auth/login?error=invalid_invite`.
+- `app/auth/invite/page.tsx` (CREATED) — Client Component; on mount reads `window.location.hash` for `access_token` + `refresh_token` (implicit flow path) and calls `supabase.auth.setSession()`; also handles PKCE `code` query param via `exchangeCodeForSession()` as fallback; always redirects to `/auth/set-password` on success.
+- `inviteUserAction` `redirectTo` updated from `/auth/callback?next=/auth/set-password` to `/auth/invite` (simpler, avoids query-param loss).
+- Supabase Dashboard → URL Configuration: `http://localhost:3000/auth/invite` and `https://fnh-monolith.vercel.app/auth/invite` added to allowed Redirect URLs.
+- `app/auth/set-password/page.tsx` (CREATED) — Client Component; validates min 8 chars + match; calls `supabase.auth.updateUser({ password })`; redirects to `/dashboard`.
+- `app/auth/callback/route.ts` retained for other PKCE flows (password reset, OAuth).
+
+#### updateRoleAction service client fix ✅
+- `updateRoleAction` switched from `createClient()` (publishable key) to `createSupabaseServiceClient()` — consistent with all other admin mutations; eliminates potential RLS race condition.
+
+#### Role display sync fix ✅
+- `UserDetail.tsx` — added `useEffect(() => { setSelectedRole(user.role) }, [user.role])` to sync local state when server refreshes props.
+- `handleRoleSave` uses `router.push(\`/admin/users/\${user.id}\`)` instead of `router.refresh()` to force full remount with fresh server data.
+
+#### Pending issues (next session)
+- Error on cancel in `/admin/users/new`: exact error message not yet confirmed — likely a Server Component crash with no `error.tsx` boundary. Fix: add `app/admin/error.tsx` and investigate root cause.
+- Role bug when changing active user role: exact reproduction steps + error to be confirmed next session.
 
 ## Rescued Assets from Existing Codebase
 

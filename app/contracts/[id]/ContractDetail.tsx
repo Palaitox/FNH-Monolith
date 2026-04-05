@@ -254,8 +254,8 @@ export default function ContractDetail({ contract, auditLogs, employee, role }: 
           )}
         </div>
 
-        {/* Signature capture */}
-        {!isSignedState && employee && (
+        {/* Signature capture — coordinator and admin only */}
+        {!isSignedState && employee && role !== 'viewer' && (
           <section className="rounded-lg border border-border bg-card p-5 space-y-3">
             <h2 className={labelClass}>Firma presencial</h2>
             <p className="text-sm text-muted-foreground">

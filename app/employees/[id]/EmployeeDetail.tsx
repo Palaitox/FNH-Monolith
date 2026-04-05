@@ -60,6 +60,7 @@ export default function EmployeeDetail({ employee, contracts, role }: Props) {
 
   const isActive = employee.deactivated_at === null
   const isAdmin = role === 'admin'
+  const isViewer = role === 'viewer'
 
   function handleSave(e: React.FormEvent) {
     e.preventDefault()
@@ -149,7 +150,7 @@ export default function EmployeeDetail({ employee, contracts, role }: Props) {
         </div>
 
         <div className="flex items-center gap-2">
-          {!editMode && isActive && (
+          {!editMode && isActive && !isViewer && (
             <button
               onClick={() => setEditMode(true)}
               className="rounded-md border border-border px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
@@ -311,8 +312,8 @@ export default function EmployeeDetail({ employee, contracts, role }: Props) {
         )}
       </div>
 
-      {/* Danger zone */}
-      <div className="rounded-lg border border-destructive/30 p-5 space-y-4">
+      {/* Danger zone — hidden for viewers */}
+      {!isViewer && <div className="rounded-lg border border-destructive/30 p-5 space-y-4">
         <p className={labelClass}>Zona peligrosa</p>
 
         {error && !editMode && (
@@ -392,6 +393,15 @@ export default function EmployeeDetail({ employee, contracts, role }: Props) {
             La eliminación permanente no está disponible: el empleado tiene {contracts.length} contrato{contracts.length !== 1 ? 's' : ''} registrado{contracts.length !== 1 ? 's' : ''}. Desactívalo en su lugar.
           </p>
         )}
+      </div>}
+
+      <div>
+        <Link
+          href="/employees"
+          className="rounded-md border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
+        >
+          ← Volver
+        </Link>
       </div>
     </main>
   )

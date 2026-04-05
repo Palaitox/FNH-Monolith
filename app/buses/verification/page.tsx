@@ -1,30 +1,33 @@
 import Link from 'next/link'
 import { listVerificationPairs } from '@/app/buses/actions/buses'
+import { getUserRole } from '@/app/(shared)/lib/auth'
 import { ClipboardCheck } from 'lucide-react'
 
 export default async function VerificationPage() {
-  const pairs = await listVerificationPairs()
+  const [pairs, role] = await Promise.all([listVerificationPairs(), getUserRole()])
 
   return (
     <div className="px-4 py-6 sm:px-6 max-w-5xl mx-auto space-y-6">
       <div className="space-y-4">
         <Link
           href="/buses"
-          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          className="inline-flex rounded-md border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
         >
-          ← Buses
+          ← Volver
         </Link>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="space-y-0.5">
             <h1 className="text-xl font-semibold tracking-tight">Verificaciones</h1>
             <p className="text-sm text-muted-foreground">{pairs.length} registradas</p>
           </div>
-          <Link
-            href="/buses/verification/new"
-            className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
-          >
-            + Nueva verificación
-          </Link>
+          {role !== 'viewer' && (
+            <Link
+              href="/buses/verification/new"
+              className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+            >
+              + Nueva verificación
+            </Link>
+          )}
         </div>
       </div>
 
