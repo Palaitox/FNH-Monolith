@@ -11,16 +11,23 @@ import {
   getAppSettings,
 } from '@/app/contracts/actions/contracts'
 import { verifyContractIntegrity } from '@/app/contracts/actions/verify-integrity'
-import type { ContractWithEmployee, ContractAuditLog } from '@/app/contracts/types'
+import type { ContractDocumentFull, ContractAuditLog } from '@/app/contracts/types'
 import type { Employee } from '@/app/(shared)/lib/employee-types'
 import { hashData } from '@/app/contracts/lib/security'
 import SignatureModal from './SignatureModal'
 
 interface Props {
-  contract: ContractWithEmployee
+  contract: ContractDocumentFull
   auditLogs: ContractAuditLog[]
   employee: Employee | null
   role: 'admin' | 'coordinator' | 'viewer' | null
+}
+
+const DOCTYPE_LABEL: Record<string, string> = {
+  INICIAL:     'Contrato inicial',
+  PRORROGA:    'Prórroga',
+  OTRO_SI:     'Otro Sí',
+  TERMINACION: 'Terminación',
 }
 
 const STORAGE_BUCKET = 'contracts'
@@ -49,13 +56,16 @@ export default function ContractDetail({ contract, auditLogs, employee, role }: 
     reason?: string
   } | null>(null)
 
+  const caseNumber = contract.contract_cases?.case_number ?? '—'
+  const employeeName = contract.contract_cases?.employees?.full_name ?? '—'
+
   async function handlePdfUpload(file: File) {
     setUploadError(null)
     setUploading(true)
     try {
       const buffer = await file.arrayBuffer()
       const hash = await hashData(buffer)
-      const pdfPath = `pdf/${contract.contract_number ?? contract.id}_${Date.now()}.pdf`
+      const pdfPath = `pdf/${caseNumber}_${Date.now()}.pdf`
       const supabase = createClient()
       const { error: upErr } = await supabase.storage
         .from(STORAGE_BUCKET)
@@ -83,19 +93,23 @@ export default function ContractDetail({ contract, auditLogs, employee, role }: 
       ])
 
       const baseVars = buildContractVars(employee, {
-        numeroContrato: contract.contract_number ?? '',
+        numeroContrato: caseNumber,
         fechaInicio: contract.fecha_inicio ?? '',
         fechaTerminacion: contract.fecha_terminacion ?? undefined,
         lugarTrabajo: settings.lugarTrabajo,
       })
       const vars = { ...baseVars, firma: signatureDataUrl }
 
-      const pdfBlob = await generateContractPdf(vars, contract.tipo_contrato ?? '')
+      const tipoForPdf = contract.document_type === 'INICIAL'
+        ? (contract.tipo_contrato ?? '')
+        : contract.document_type.toLowerCase()
+
+      const pdfBlob = await generateContractPdf(vars, tipoForPdf)
       const buffer = await pdfBlob.arrayBuffer()
       const hash = await hashData(buffer)
 
-      const filename = `contrato_${contract.contract_number}_firmado.pdf`
-      const pdfPath = `pdf/${contract.contract_number ?? contract.id}_signed.pdf`
+      const filename = `contrato_${caseNumber}_firmado.pdf`
+      const pdfPath = `pdf/${caseNumber}_signed.pdf`
       const supabase = createClient()
       const { error: upErr } = await supabase.storage
         .from(STORAGE_BUCKET)
@@ -104,13 +118,8 @@ export default function ContractDetail({ contract, auditLogs, employee, role }: 
 
       await attachSignedPdfAction(contract.id, pdfPath, filename, hash)
 
-      // Show success banner before refresh — on mobile this is the only
-      // feedback since the download is skipped.
       setJustSigned(true)
 
-      // Trigger browser download — desktop only.
-      // On iOS Safari, a.click() on a blob URL navigates the current page,
-      // causing "Load Failed" and killing attachSignedPdfAction before it runs.
       const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
       if (!isMobile) {
         try {
@@ -123,7 +132,7 @@ export default function ContractDetail({ contract, auditLogs, employee, role }: 
           document.body.removeChild(a)
           setTimeout(() => URL.revokeObjectURL(url), 1000)
         } catch {
-          // ignore — contract is already signed and saved
+          // ignore
         }
       }
 
@@ -139,12 +148,6 @@ export default function ContractDetail({ contract, auditLogs, employee, role }: 
     if (!contract.pdf_path) return
     setOpeningPdf(true)
     setOpenPdfError(null)
-    // Open the window synchronously while still inside the click-handler's
-    // user-gesture context. iOS Safari blocks window.open() called after
-    // any await, treating it as an unsolicited popup.
-    // NOTE: do NOT pass 'noopener' — it causes the browser to return null
-    // for the window reference, which makes every browser fall back to
-    // navigating the current tab instead of the new window.
     const newWindow = window.open('', '_blank')
     try {
       const supabase = createClient()
@@ -186,7 +189,7 @@ export default function ContractDetail({ contract, auditLogs, employee, role }: 
     <>
       {showSignatureModal && (
         <SignatureModal
-          workerName={contract.employees?.full_name ?? ''}
+          workerName={employeeName}
           onConfirm={handleSignatureConfirmed}
           onClose={() => setShowSignatureModal(false)}
         />
@@ -194,7 +197,6 @@ export default function ContractDetail({ contract, auditLogs, employee, role }: 
 
       <div className="px-4 py-6 sm:px-6 max-w-3xl mx-auto space-y-8">
 
-        {/* Success banner — shown after signing completes, before router.refresh() resolves */}
         {justSigned && (
           <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-4 flex items-start gap-3">
             <CheckSquare className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" />
@@ -211,9 +213,7 @@ export default function ContractDetail({ contract, auditLogs, employee, role }: 
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-3">
-              <h1 className="text-xl font-semibold tracking-tight">
-                {contract.employees?.full_name ?? '—'}
-              </h1>
+              <h1 className="text-xl font-semibold tracking-tight">{employeeName}</h1>
               {isSignedState ? (
                 <span className="inline-flex items-center gap-1 font-mono text-xs font-medium text-emerald-500 border border-emerald-500/20 bg-emerald-500/10 rounded-full px-2.5 py-0.5">
                   <CheckSquare className="h-3 w-3" /> Firmado
@@ -224,13 +224,16 @@ export default function ContractDetail({ contract, auditLogs, employee, role }: 
                 </span>
               )}
             </div>
-            <p className="font-mono text-sm text-muted-foreground">{contract.contract_number ?? '—'}</p>
+            <p className="font-mono text-sm text-muted-foreground">{caseNumber}</p>
           </div>
         </div>
 
         {/* Contract info */}
         <div className="rounded-lg border border-border divide-y divide-border/60">
-          <Row label="Tipo de contrato" value={contract.tipo_contrato} />
+          <Row label="Tipo de documento" value={DOCTYPE_LABEL[contract.document_type] ?? contract.document_type} />
+          {contract.document_type === 'INICIAL' && (
+            <Row label="Tipo de contrato" value={contract.tipo_contrato} />
+          )}
           <Row label="Fecha de inicio" value={contract.fecha_inicio} mono />
           <Row label="Fecha de terminación" value={contract.fecha_terminacion} mono />
           <Row label="Forma de pago" value={contract.forma_pago} />
@@ -278,14 +281,13 @@ export default function ContractDetail({ contract, auditLogs, employee, role }: 
           </section>
         )}
 
-        {/* PDF section — only shown once the contract has been signed or a PDF already exists */}
+        {/* PDF section */}
         {(isSignedState || !!contract.pdf_path) && (
         <section className="rounded-lg border border-border bg-card p-5 space-y-4">
           <h2 className={labelClass}>PDF firmado</h2>
 
           {contract.pdf_path ? (
             <div className="space-y-4">
-              {/* Filename + actions row */}
               <div className="flex items-center gap-3 flex-wrap">
                 <p className="font-mono text-sm text-muted-foreground flex-1 min-w-0 truncate">
                   {contract.pdf_filename ?? contract.pdf_path}
@@ -305,7 +307,6 @@ export default function ContractDetail({ contract, auditLogs, employee, role }: 
                 </p>
               )}
 
-              {/* Integrity */}
               <div className="space-y-2">
                 <button
                   onClick={handleVerifyIntegrity}
@@ -332,7 +333,6 @@ export default function ContractDetail({ contract, auditLogs, employee, role }: 
                 )}
               </div>
 
-              {/* Replace — collapsible feel via details */}
               <details className="group">
                 <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground transition-colors list-none flex items-center gap-1">
                   <span className="group-open:hidden">▸ Reemplazar PDF firmado</span>

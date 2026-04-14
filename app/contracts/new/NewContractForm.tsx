@@ -1,137 +1,215 @@
 'use client'
 
-import { useEffect, useState, useTransition } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useRef, useState, useTransition } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
   listEmployees,
   nextContractNumber,
   createContractAction,
+  getCasesForEmployee,
   getAppSettings,
+  attachSignedPdfAction,
 } from '@/app/contracts/actions/contracts'
 import type { Employee } from '@/app/(shared)/lib/employee-types'
-import type { AppSettings } from '@/app/contracts/types'
+import type { AppSettings, ContractCase } from '@/app/contracts/types'
 
 const TIPO_OPTIONS = [
-  { value: 'tiempo_completo', label: 'Término fijo — Tiempo completo' },
-  { value: 'medio_tiempo', label: 'Término fijo — Medio tiempo' },
+  { value: 'tiempo_completo',     label: 'Término fijo — Tiempo completo' },
+  { value: 'medio_tiempo',        label: 'Término fijo — Medio tiempo' },
+  { value: 'indefinido',          label: 'Término indefinido' },
   { value: 'prestacion_servicios', label: 'Prestación de servicios' },
-  { value: 'otro_si', label: 'Otro Sí — Modificatorio' },
+  { value: 'otro_si',             label: 'Otro Sí — Modificatorio' },
 ]
 
 export default function NewContractPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [isPending, startTransition] = useTransition()
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Pre-fill from query params (e.g. "+ Agregar" button in contracts list)
+  const preEmployeeId = searchParams.get('employee_id') ?? ''
+  const preCaseId = searchParams.get('case_id') ?? ''
 
   // Data
   const [employees, setEmployees] = useState<Employee[]>([])
-  const [contractNumber, setContractNumber] = useState('')
+  const [nextCaseNumber, setNextCaseNumber] = useState('')
   const [settings, setSettings] = useState<AppSettings | null>(null)
 
   // Form state
-  const [employeeId, setEmployeeId] = useState('')
-  const [tipoContrato, setTipoContrato] = useState('tiempo_completo')
+  const [employeeId, setEmployeeId] = useState(preEmployeeId)
+  const [tipoContrato, setTipoContrato] = useState(preCaseId ? 'otro_si' : 'tiempo_completo')
   const [fechaInicio, setFechaInicio] = useState('')
   const [fechaTerminacion, setFechaTerminacion] = useState('')
   const [formaPago, setFormaPago] = useState('')
+
+  // Otro Sí: available cases for the selected employee
+  const [employeeCases, setEmployeeCases] = useState<ContractCase[]>([])
+  const [selectedCaseId, setSelectedCaseId] = useState(preCaseId)
+
+  // PDF import: optional for most types, required for 'indefinido'
+  const [importPdfFile, setImportPdfFile] = useState<File | null>(null)
 
   // UI state
   const [error, setError] = useState<string | null>(null)
   const [generating, setGenerating] = useState(false)
 
+  const esOtroSi     = tipoContrato === 'otro_si'
+  const esIndefinido = tipoContrato === 'indefinido'
+
   useEffect(() => {
     Promise.all([listEmployees(), nextContractNumber(), getAppSettings()]).then(
       ([emps, num, cfg]) => {
         setEmployees(emps)
-        setContractNumber(num)
+        setNextCaseNumber(num)
         setSettings(cfg)
         if (cfg.formaPago) setFormaPago(cfg.formaPago)
       },
     )
   }, [])
 
-  const selectedEmployee = employees.find((e) => e.id === employeeId) ?? null
+  // When employee changes and tipo is otro_si, load their cases
+  useEffect(() => {
+    if (!esOtroSi || !employeeId) {
+      setEmployeeCases([])
+      setSelectedCaseId(esOtroSi ? '' : preCaseId)
+      return
+    }
+    getCasesForEmployee(employeeId).then((cases) => {
+      setEmployeeCases(cases)
+      // Prefer the pre-filled case_id if it belongs to this employee
+      const preMatch = cases.find((c) => c.id === preCaseId)
+      setSelectedCaseId(preMatch?.id ?? cases[0]?.id ?? '')
+    })
+  }, [employeeId, esOtroSi])
 
-  async function handleGenerateAndSave() {
+  // Reset imported PDF when tipo changes
+  useEffect(() => {
+    setImportPdfFile(null)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }, [tipoContrato])
+
+  const selectedEmployee = employees.find((e) => e.id === employeeId) ?? null
+  const selectedCase = employeeCases.find((c) => c.id === selectedCaseId) ?? null
+
+  const displayNumber = esOtroSi
+    ? (selectedCase?.case_number ?? '…')
+    : (nextCaseNumber || '…')
+
+  async function handleSubmit() {
     setError(null)
 
     if (!employeeId || !selectedEmployee) return setError('Selecciona un empleado.')
-    if (!fechaInicio) return setError('Ingresa la fecha de inicio.')
+    if (esOtroSi && !selectedCaseId) return setError('Selecciona el expediente contractual al que aplica este Otro Sí.')
+    if (!esOtroSi && !fechaInicio) return setError('Ingresa la fecha de inicio.')
+    if (esIndefinido && !importPdfFile) return setError('Para contratos a término indefinido, debes importar el PDF firmado.')
+
+    const fechaEfectiva = esOtroSi ? '2026-03-16' : fechaInicio
 
     setGenerating(true)
     try {
-      // Dynamically import to keep @react-pdf/renderer out of the SSR bundle
-      const [{ generateContractPdf }, { buildContractVars }] = await Promise.all([
-        import('@/app/contracts/lib/contract-pdf'),
-        import('@/app/contracts/lib/pdf-vars'),
-      ])
+      if (importPdfFile) {
+        // ── Import mode: skip PDF generation, create doc + upload + sign ──────
+        const doc = await createContractAction({
+          employee_id: employeeId,
+          document_type: esOtroSi ? 'OTRO_SI' : 'INICIAL',
+          tipo_contrato: tipoContrato,
+          fecha_inicio: fechaEfectiva,
+          fecha_terminacion: (esOtroSi || esIndefinido) ? undefined : (fechaTerminacion || undefined),
+          forma_pago: esOtroSi ? undefined : (formaPago || undefined),
+          case_id: esOtroSi ? selectedCaseId : undefined,
+        })
 
-      const vars = buildContractVars(selectedEmployee, {
-        numeroContrato: contractNumber,
-        fechaInicio,
-        fechaTerminacion: fechaTerminacion || undefined,
-        lugarTrabajo: settings?.lugarTrabajo ?? '',
-      })
+        const { hashData } = await import('@/app/contracts/lib/security')
+        const buffer = await importPdfFile.arrayBuffer()
+        const hash = await hashData(buffer)
 
-      const pdfBlob = await generateContractPdf(vars, tipoContrato)
-
-      // Save contract record first
-      const contract = await createContractAction({
-        employee_id: employeeId,
-        tipo_contrato: tipoContrato,
-        fecha_inicio: fechaInicio,
-        fecha_terminacion: fechaTerminacion || undefined,
-        forma_pago: formaPago || undefined,
-      })
-
-      // Upload the unsigned draft PDF to Storage so it's accessible on all
-      // devices (on mobile the download is skipped, so without this the
-      // unsigned PDF would be lost entirely).
-      try {
         const { createClient } = await import('@/lib/client')
         const supabase = createClient()
-        const draftPath = `pdf/${contractNumber}_draft.pdf`
-        await supabase.storage
+        const pdfPath = `pdf/${displayNumber}_${Date.now()}.pdf`
+        const { error: upErr } = await supabase.storage
           .from('contracts')
-          .upload(draftPath, pdfBlob, { contentType: 'application/pdf', upsert: true })
-        // Best-effort: if upload fails the contract record still exists
-      } catch {
-        // ignore upload failure — contract is saved, user can still sign
-      }
+          .upload(pdfPath, importPdfFile, { contentType: 'application/pdf', upsert: true })
+        if (upErr) throw new Error(`Error al subir el PDF: ${upErr.message}`)
 
-      // Trigger browser download only on desktop.
-      // On iOS Safari, a.click() on a blob URL navigates the current page to
-      // blob:... (the download attribute is ignored), which shows "Load Failed"
-      // and kills all subsequent JS — including router.push. Skip on mobile.
-      const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
-      if (!isMobile) {
+        await attachSignedPdfAction(doc.id, pdfPath, importPdfFile.name, hash)
+        router.push(`/contracts/${doc.id}`)
+      } else {
+        // ── Normal mode: generate PDF from template ───────────────────────────
+        const [{ generateContractPdf }, { buildContractVars }] = await Promise.all([
+          import('@/app/contracts/lib/contract-pdf'),
+          import('@/app/contracts/lib/pdf-vars'),
+        ])
+
+        const numeroContrato = esOtroSi ? (selectedCase?.case_number ?? '') : nextCaseNumber
+
+        const vars = buildContractVars(selectedEmployee, {
+          numeroContrato,
+          fechaInicio: fechaEfectiva,
+          fechaTerminacion: esOtroSi ? undefined : (fechaTerminacion || undefined),
+          lugarTrabajo: settings?.lugarTrabajo ?? '',
+        })
+
+        const pdfBlob = await generateContractPdf(vars, tipoContrato)
+
+        const doc = await createContractAction({
+          employee_id: employeeId,
+          document_type: esOtroSi ? 'OTRO_SI' : 'INICIAL',
+          tipo_contrato: tipoContrato,
+          fecha_inicio: fechaEfectiva,
+          fecha_terminacion: esOtroSi ? undefined : (fechaTerminacion || undefined),
+          forma_pago: esOtroSi ? undefined : (formaPago || undefined),
+          case_id: esOtroSi ? selectedCaseId : undefined,
+        })
+
+        // Upload unsigned draft to Storage
         try {
-          const url = URL.createObjectURL(pdfBlob)
-          const a = document.createElement('a')
-          a.href = url
-          a.download = `contrato_${contractNumber}_${selectedEmployee.cedula}.pdf`
-          document.body.appendChild(a)
-          a.click()
-          document.body.removeChild(a)
-          setTimeout(() => URL.revokeObjectURL(url), 1000)
+          const { createClient } = await import('@/lib/client')
+          const supabase = createClient()
+          const draftPath = `pdf/${numeroContrato}_draft.pdf`
+          await supabase.storage
+            .from('contracts')
+            .upload(draftPath, pdfBlob, { contentType: 'application/pdf', upsert: true })
         } catch {
-          // ignore — contract is already saved
+          // ignore — contract record is already saved
         }
-      }
 
-      router.push(`/contracts/${contract.id}`)
+        const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+        if (!isMobile) {
+          try {
+            const url = URL.createObjectURL(pdfBlob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = `contrato_${numeroContrato}_${selectedEmployee.cedula}.pdf`
+            document.body.appendChild(a)
+            a.click()
+            document.body.removeChild(a)
+            setTimeout(() => URL.revokeObjectURL(url), 1000)
+          } catch {
+            // ignore
+          }
+        }
+
+        router.push(`/contracts/${doc.id}`)
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error desconocido.')
       setGenerating(false)
     }
   }
 
+  const isImporting = !!importPdfFile
+  const submitLabel = generating || isPending
+    ? (isImporting ? 'Importando…' : 'Generando…')
+    : (isImporting ? 'Importar contrato firmado' : 'Generar y guardar contrato')
+
   return (
     <div className="px-4 py-6 sm:px-6 max-w-2xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Nuevo contrato</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          N° <span className="font-mono">{contractNumber || '…'}</span>
+          N° <span className="font-mono">{displayNumber}</span>
         </p>
       </div>
 
@@ -169,43 +247,116 @@ export default function NewContractPage() {
           </select>
         </div>
 
-        {/* Dates */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Otro Sí: expediente selection */}
+        {esOtroSi && (
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">
-              {tipoContrato === 'otro_si' ? 'Fecha de firma' : 'Fecha de inicio'}
-            </label>
-            <input
-              type="date"
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-              value={fechaInicio}
-              onChange={(e) => setFechaInicio(e.target.value)}
-            />
+            <label className="text-sm font-medium">Expediente contractual a modificar</label>
+            {!employeeId ? (
+              <p className="text-sm text-muted-foreground">Selecciona primero un empleado.</p>
+            ) : employeeCases.length === 0 ? (
+              <p className="text-sm text-destructive">
+                Este empleado no tiene expedientes registrados. Crea primero un contrato inicial.
+              </p>
+            ) : (
+              <select
+                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                value={selectedCaseId}
+                onChange={(e) => setSelectedCaseId(e.target.value)}
+              >
+                {employeeCases.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.case_number} — {c.status === 'active' ? 'Vigente' : 'Cerrado'}
+                    {c.current_end_date ? ` (hasta ${c.current_end_date})` : ''}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
-          {tipoContrato !== 'otro_si' && (
+        )}
+
+        {/* Dates — hidden for Otro Sí; fecha_terminacion hidden for indefinido */}
+        {!esOtroSi && (
+          <div className={`grid grid-cols-1 gap-4 ${esIndefinido ? '' : 'sm:grid-cols-2'}`}>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Fecha de terminación</label>
+              <label className="text-sm font-medium">Fecha de inicio</label>
               <input
                 type="date"
                 className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                value={fechaTerminacion}
-                onChange={(e) => setFechaTerminacion(e.target.value)}
+                value={fechaInicio}
+                onChange={(e) => setFechaInicio(e.target.value)}
               />
             </div>
-          )}
-        </div>
+            {!esIndefinido && (
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Fecha de terminación</label>
+                <input
+                  type="date"
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                  value={fechaTerminacion}
+                  onChange={(e) => setFechaTerminacion(e.target.value)}
+                />
+              </div>
+            )}
+          </div>
+        )}
 
-        {/* Forma de pago */}
-        <div className="space-y-1.5">
-          <label className="text-sm font-medium">Forma de pago</label>
-          <input
-            type="text"
-            className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-            value={formaPago}
-            onChange={(e) => setFormaPago(e.target.value)}
-            placeholder={settings?.formaPago ?? ''}
-          />
-        </div>
+        {/* Forma de pago — hidden for Otro Sí */}
+        {!esOtroSi && (
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">Forma de pago</label>
+            <input
+              type="text"
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+              value={formaPago}
+              onChange={(e) => setFormaPago(e.target.value)}
+              placeholder={settings?.formaPago ?? ''}
+            />
+          </div>
+        )}
+
+        {/* PDF import — required for indefinido, optional for all other types */}
+        {!esOtroSi && (
+          <div className="space-y-1.5 rounded-md border border-dashed border-border p-4">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium">
+                {esIndefinido ? 'PDF firmado (requerido)' : 'Importar PDF firmado (opcional)'}
+              </label>
+              {importPdfFile && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setImportPdfFile(null)
+                    if (fileInputRef.current) fileInputRef.current.value = ''
+                  }}
+                  className="text-xs text-muted-foreground hover:text-destructive transition-colors"
+                >
+                  Quitar
+                </button>
+              )}
+            </div>
+
+            {importPdfFile ? (
+              <p className="font-mono text-xs text-muted-foreground truncate">
+                {importPdfFile.name}
+              </p>
+            ) : (
+              <>
+                <p className="text-xs text-muted-foreground">
+                  {esIndefinido
+                    ? 'Sube el PDF físico ya firmado. No se generará un PDF desde la plataforma.'
+                    : 'Si ya tienes el contrato firmado, súbelo aquí y quedará registrado directamente como firmado.'}
+                </p>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="application/pdf"
+                  className="w-full text-sm text-muted-foreground file:mr-3 file:rounded file:border-0 file:bg-muted file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-foreground hover:file:bg-muted/80 cursor-pointer"
+                  onChange={(e) => setImportPdfFile(e.target.files?.[0] ?? null)}
+                />
+              </>
+            )}
+          </div>
+        )}
 
         {error && (
           <p className="text-sm text-destructive rounded-md bg-destructive/10 px-3 py-2">
@@ -215,11 +366,11 @@ export default function NewContractPage() {
 
         <div className="flex gap-3 pt-1">
           <button
-            onClick={() => startTransition(handleGenerateAndSave)}
+            onClick={() => startTransition(handleSubmit)}
             disabled={generating || isPending}
             className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90 disabled:opacity-50"
           >
-            {generating || isPending ? 'Generando…' : 'Generar y guardar contrato'}
+            {submitLabel}
           </button>
           <Link
             href="/contracts"

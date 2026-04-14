@@ -4,39 +4,67 @@
 
 ---
 
-## Objetivo actual
-Completar Phase 13 (mejoras de UX y arquitectura de sesión), incluyendo la plantilla "Otro Sí", refuerzo de rol viewer, y este sistema de memoria recursiva.
+## ¿En qué fase estamos?
+**Phase 13 completada. Phase 14 en curso** (carga de contratos históricos + módulo de contratos pulido).
 
-## Estado real hoy (2026-04-05)
+Phase 13 cerró con: viewer role, UX improvements, Otro Sí, arquitectura de sesión.
+Phase 14 abrió esta sesión con la carga de los 32 contratos históricos físicamente firmados.
 
-- **Phase 13 en curso** — la mayoría de items completados:
-  - ✅ Hard delete de usuarios (ND-42)
-  - ✅ Fix invite flow — `/auth/invite` Client Component (ND-43)
-  - ✅ Rol viewer: guards en todas las páginas de mutación + UI gated
-  - ✅ Botones "← Volver" en empleados, conductores, vehículos, verificación
-  - ✅ Panel de Buses: hover mejorado en cards, botones redundantes eliminados
-  - ✅ "Otro Sí" como 4° tipo de contrato — 2 páginas, texto verbatim del template
-  - ✅ Arquitectura de sesión: CLAUDE.md + docs/session-handoff.md + Quick Orientation + Snapshot
+---
 
-- **Pendiente confirmación:** que el PDF "Otro Sí" genere correctamente las dos páginas en producción (el usuario lo va a probar)
+## Estado real hoy (2026-04-14)
 
-## Decisiones nuevas esta sesión
-- ND-44 (pendiente de registrar formalmente): `otro_si` como 4° tipo en `generateContractPdf`; `trabajador_jornada?` añadido a `ContractVars`; `fechaTerminacion` oculto en el form cuando tipo = `otro_si`
+### Completado esta sesión
+- ✅ `termino_indefinido` como 4° valor de `JornadaLaboral` (tipo + DB constraint + UI en 4 lugares)
+- ✅ Importación de PDF firmado en el flujo de nuevo contrato (modo import vs. modo generate)
+- ✅ Modelo de numeración de expedientes reescrito: gap-fill + auto-delete de casos huérfanos (ND-46)
+- ✅ Migraciones 0012–0014 aplicadas en producción (`qolnrtoznrgiedyhffbn`)
+- ✅ Vista de contratos rediseñada: árbol de expedientes con ramas, vigencia visual (ND-47)
+- ✅ Búsqueda y filtros en el módulo de contratos (Client Component `ContractsList.tsx`)
+- ✅ Sección "Estado contractual de empleados" en el dashboard (sin contrato / pendiente firma / vigente)
+- ✅ NDs 46 y 47 registradas
 
-## Archivos a leer primero en la próxima sesión
-1. `docs/session-handoff.md` (este archivo)
-2. `implementation_plan.md.md` — sección "Current State Snapshot"
-3. `app/contracts/lib/contract-pdf.tsx` si hay issues con el Otro Sí
+### Pendiente
+- ⏳ Terminar de subir los ~32 contratos físicos restantes (el usuario está en proceso)
+- ⏳ Contrato de **Laura Ángela Ramírez Parra** (expediente 031) — metadatos pendientes de confirmar
+- ⏳ PR a `main` cuando se estabilice la carga de datos
 
-## Cosas que no deben romperse
-- `middleware.ts` — usa `getClaims()`, no tocar sin leer ND-13
-- `contract-pdf.tsx` — BROWSER-ONLY, no importar en server sin dynamic import
-- Orden FK en deleteUserAction: `public.users` primero, luego `auth.users`
-- `pako` pinned a v1 en `package.json` overrides — no actualizar
+---
+
+## ¿Qué no puedo romper?
+
+| Invariante | Dónde está | ND |
+|---|---|---|
+| `claim_next_case_number()` escanea la tabla, no un contador persistente | `db.ts` → `supabase.rpc('claim_next_case_number')` | ND-46 |
+| `deleteContractAction` borra el case si queda vacío de documentos | `contracts/actions/contracts.ts` | ND-46 |
+| Vigencia usa `current_end_date ?? fecha_terminacion(INICIAL)` | `ContractsList.tsx` y `getEmployeeContractStatusAction` | ND-47 |
+| `middleware.ts` usa `getClaims()`, no `getUser()` | `middleware.ts` | ND-13 |
+| `contract-pdf.tsx` es BROWSER-ONLY — dynamic import only | `contracts/lib/contract-pdf.tsx` | ND-36 |
+| Orden FK en deleteUserAction: `public.users` primero | `admin/actions/users.ts` | ND-42 |
+| `pako` pinned a v1 en `package.json` overrides | `package.json` | ND-35 |
+
+---
+
+## ⚠️ Dato crítico de infraestructura
+
+La app (`next dev` / Vercel) se conecta a **`qolnrtoznrgiedyhffbn.supabase.co`** (`.env.local`).
+El MCP de Supabase disponible en esta sesión **solo tiene acceso a `ukzccqogkbfdtymmgavj`** (proyecto diferente).
+
+**Consecuencia:** cualquier migración SQL debe correrse manualmente en el Dashboard del proyecto correcto (`qolnrtoznrgiedyhffbn`). No usar el MCP para verificar estado de producción — los resultados son del proyecto equivocado.
+
+---
 
 ## Siguiente acción concreta
-Verificar con el usuario que el PDF "Otro Sí" genera 2 páginas correctamente. Si hay issues, revisar que `<Page>` múltiples dentro de `<Document>` en react-pdf no tengan componentes internos con hooks (los componentes inline como `HeaderTable`, `ClosingParagraph` funcionan como funciones, no como componentes React — correcto en react-pdf).
+
+1. Continuar subiendo los contratos físicos desde `/contracts/new` (importar PDF firmado)
+2. Confirmar metadatos del expediente 031 (Laura Ángela Ramírez Parra) y crearlo
+3. Una vez todos los contratos estén cargados: commit + PR a `main`
+4. Siguiente feature: por definir con el usuario
+
+---
 
 ## Errores recientes a evitar
-- Pasar `React.ReactElement` como prop dentro de `<Text>` en react-pdf → silenciosamente descarta páginas. Solución: inlinear todo el texto directamente.
-- No copiar texto de PDFs con OCR sin verificar — el agente de extracción sobre el PDF da resultados más fiables que leer directamente.
+- No consultar el MCP de Supabase para verificar estado de producción — apunta al proyecto equivocado
+- 502 de Supabase es transitorio — reintentar la operación, no buscar un bug de código
+- `generate_series(1, 0)` devuelve cero filas — el gap-fill retorna correctamente NULL en ese caso, lo que produce el primer número `001`; no es un bug
+- Pasar `React.ReactElement` como prop dentro de `<Text>` en react-pdf descarta páginas silenciosamente

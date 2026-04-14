@@ -918,8 +918,6 @@ function OtroSi({ v }: { v: ContractVars }) {
 
   return (
     <Document>
-
-      {/* ── PÁGINA 1 ── versión con una cláusula ────────────────────────────── */}
       <Page style={S.page}>
         <PageHeader />
         <PageFooter />
@@ -930,14 +928,19 @@ function OtroSi({ v }: { v: ContractVars }) {
               {'OTRO SI AL CONTRATO LABORAL A TÉRMINO FIJO INFERIOR A UN AÑO – '}{jornadaLabel}
             </Text>
           </View>
-          <TR label="NOMBRE EMPLEADOR:" value="FUNDACIÓN NUEVO HORIZONTE NIT: 821.003.251-4" />
-          <TR label="NOMBRE TRABAJADOR:" value={`${v.trabajador_nombre}  C. C. No. ${v.trabajador_cedula}`} />
-          <TR label="CARGO:" value={v.trabajador_cargo} />
-          <TR label="FECHA:" value={`${v.dia_inicio} DE ${mesUpper} DEL AÑO ${v.anio_inicio}.`} />
+          <View style={S.tableRow}>
+          <Text style={{ ...fullWidthBold, textAlign: 'center' }}>
+            {'N°. '}{v.contrato_numero}
+          </Text>
         </View>
+        <TR label="NOMBRE EMPLEADOR:" value="FUNDACIÓN NUEVO HORIZONTE NIT: 821.003.251-4" />
+        <TR label="NOMBRE TRABAJADOR:" value={`${v.trabajador_nombre}  C. C. No. ${v.trabajador_cedula}`} />
+        <TR label="CARGO:" value={v.trabajador_cargo} />
+        <TR label="FECHA:" value="16 DE MARZO DEL AÑO 2026" />
+      </View>
 
-        <Text style={S.body}>
-          {'Entre los suscritos, a saber '}
+      <Text style={S.body}>
+        {'Entre los suscritos, a saber '}
           <B>{'DORA PATRICIA CARMONA SOTO'}</B>
           {', mayor de edad, identificada con la cédula de ciudadanía '}
           <B>{'N° 29.158.068 expedida en Ansermanuevo (Valle del Cauca)'}</B>
@@ -971,8 +974,7 @@ function OtroSi({ v }: { v: ContractVars }) {
         </Text>
 
         <Text style={S.body}>
-          {'Para constancia de lo anterior, se firma en dos (2) ejemplares del mismo tenor y valor, ante testigos en Guadalajara de Buga – Valle del Cauca a los '}
-          {v.dia_inicio}{' días del mes de '}{mesUpper}{' de '}{v.anio_inicio}{'.'}
+          {'Para constancia de lo anterior, se firma en dos (2) ejemplares del mismo tenor y valor, ante testigos en Guadalajara de Buga – Valle del Cauca a los dieciséis días del mes de MARZO de 2026.'}
         </Text>
 
         <View style={S.sigRow}>
@@ -988,90 +990,9 @@ function OtroSi({ v }: { v: ContractVars }) {
             <SigSpace firma={v.firma} />
             <Text style={S.sigName}>{v.trabajador_nombre}</Text>
             <Text style={S.sigLine}>{`C.C. No. ${v.trabajador_cedula}`}</Text>
-            <Text style={S.sigLine}>{`CEL. ${v.trabajador_telefono}`}</Text>
           </View>
         </View>
       </Page>
-
-      {/* ── PÁGINA 2 ── versión con tres cláusulas ──────────────────────────── */}
-      <Page style={S.page}>
-        <PageHeader />
-        <PageFooter />
-
-        <View style={S.table}>
-          <View style={S.tableRow}>
-            <Text style={fullWidthBold}>
-              {'OTRO- SI AL CONTRATO LABORAL A TÉRMINO FIJO INFERIOR A UN AÑO – '}{jornadaLabel}
-            </Text>
-          </View>
-          <TR label="NOMBRE EMPLEADOR:" value="FUNDACIÓN NUEVO HORIZONTE NIT: 821.003.251-4" />
-          <TR label="NOMBRE TRABAJADOR:" value={`${v.trabajador_nombre}  C. C. No. ${v.trabajador_cedula}`} />
-          <TR label="CARGO:" value={v.trabajador_cargo} />
-          <TR label="FECHA:" value={`${v.dia_inicio} DE ${mesUpper} DEL AÑO ${v.anio_inicio}.`} />
-        </View>
-
-        <Text style={S.body}>
-          {'Entre los suscritos, a saber '}
-          <B>{'DORA PATRICIA CARMONA SOTO'}</B>
-          {', mayor de edad, identificada con la cédula de ciudadanía '}
-          <B>{'N° 29.158.068 expedida en Ansermanuevo (Valle del Cauca)'}</B>
-          {', en su calidad de Representante Legal de la '}
-          <B>{'FUNDACION NUEVO HORIZONTE NIT 821.003.251-4'}</B>
-          {' y con domicilio principal en la ciudad de Guadalajara de Buga, quien para efectos del presente documento se denominará el '}
-          <B>{'EMPLEADOR'}</B>
-          {', y por otra parte, '}
-          <B>{v.trabajador_nombre}</B>
-          {', también mayor de edad, identificada/o con la cédula de ciudadanía '}
-          <B>{`N° ${v.trabajador_cedula}`}</B>
-          {', quien se denominará el '}
-          <B>{'TRABAJADOR'}</B>
-          {', hemos acordado de manera libre y voluntaria suscribir el presente '}
-          <B>{'OTRO SÍ'}</B>
-          {' para modificar la cláusula relativa a la periodicidad y fecha de pago, bajo las siguientes consideraciones:'}
-        </Text>
-
-        <Text style={S.body}>
-          <B>{'CLÁUSULA PRIMERA. MODIFICACIÓN DE LA FECHA DE PAGO'}</B>
-          {': Las partes acuerdan modificar la cláusula '}
-          <B>{'SEXTA – Remuneración'}</B>
-          {'; del contrato de trabajo vigente. A partir de la firma del presente documento, el pago del salario mensual se realizará dentro del periodo comprendido entre los días '}
-          <B>{'quince (15) y veinte (20) días de cada mes calendario.'}</B>
-        </Text>
-
-        <Text style={S.body}>
-          <B>{'CLAUSULA SEGUNDA. PERIODO DE CAUSACIÓN'}</B>
-          {': Se establece que el pago mencionado en la cláusula anterior, corresponde al periodo laborado del día '}
-          <B>{'21 del mes anterior al día 20 del mes en curso.'}</B>
-        </Text>
-
-        <Text style={S.body}>
-          <B>{'CLAUSULA TERCERA. VIGENCIA Y DEMÁS CLÁUSULAS'}</B>
-          {': El presente Otrosí rige a partir de la fecha de su firma. Las demás cláusulas del contrato de trabajo original que no fueron modificadas por este documento permanecen vigentes y sin cambio alguno.'}
-        </Text>
-
-        <Text style={S.body}>
-          {'Para constancia de lo anterior, se firma en dos (2) ejemplares del mismo tenor y valor, ante testigos en Guadalajara de Buga – Valle del Cauca a los '}
-          {v.dia_inicio}{' días del mes de '}{mesUpper}{' de '}{v.anio_inicio}{'.'}
-        </Text>
-
-        <View style={S.sigRow}>
-          <View style={S.sigCol}>
-            <Text style={S.sigLabel}>{'EL EMPLEADOR'}</Text>
-            <Text style={{ height: 40 }} />
-            <Text style={S.sigName}>{'DORA PATRICIA CARMONA SOTO'}</Text>
-            <Text style={S.sigLine}>{'C.C. No. 29.158.068 de Ansermanuevo'}</Text>
-            <Text style={S.sigLine}>{'Representante Legal'}</Text>
-          </View>
-          <View style={S.sigCol}>
-            <Text style={S.sigLabel}>{'EL TRABAJADOR'}</Text>
-            <SigSpace firma={v.firma} />
-            <Text style={S.sigName}>{v.trabajador_nombre}</Text>
-            <Text style={S.sigLine}>{`C.C. No. ${v.trabajador_cedula}`}</Text>
-            <Text style={S.sigLine}>{`CEL. ${v.trabajador_telefono}`}</Text>
-          </View>
-        </View>
-      </Page>
-
     </Document>
   )
 }

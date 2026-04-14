@@ -137,6 +137,7 @@ export default function NewEmployeePage() {
               <option value="tiempo_completo">Tiempo completo</option>
               <option value="medio_tiempo">Medio tiempo</option>
               <option value="prestacion_servicios">Prestación de servicios</option>
+              <option value="termino_indefinido">Término indefinido</option>
             </select>
           </div>
 

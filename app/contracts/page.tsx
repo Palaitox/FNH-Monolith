@@ -1,87 +1,109 @@
 import Link from 'next/link'
 import { listContracts } from '@/app/contracts/actions/contracts'
 import { getUserRole } from '@/app/(shared)/lib/auth'
-import { FileText, CheckSquare, Clock } from 'lucide-react'
+import ContractsList, { type CaseGroup, type VigencyStatus } from './ContractsList'
+import type { ContractDocumentFull } from '@/app/contracts/types'
+
+function computeVigency(
+  fechaInicio: string | null | undefined,
+  currentEndDate: string | null | undefined,
+): { status: VigencyStatus; daysLeft: number | null } {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  if (!fechaInicio) return { status: 'vigente', daysLeft: null }
+  const start = new Date(fechaInicio)
+  start.setHours(0, 0, 0, 0)
+  if (start > today) return { status: 'no_iniciado', daysLeft: null }
+  if (!currentEndDate) return { status: 'indefinido', daysLeft: null }
+  const end = new Date(currentEndDate)
+  end.setHours(0, 0, 0, 0)
+  const daysLeft = Math.ceil((end.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+  if (daysLeft < 0)   return { status: 'vencido', daysLeft }
+  if (daysLeft <= 30) return { status: 'por_vencer', daysLeft }
+  return { status: 'vigente', daysLeft }
+}
+
+function groupByCases(contracts: ContractDocumentFull[]): CaseGroup[] {
+  const map = new Map<string, CaseGroup>()
+
+  for (const doc of contracts) {
+    const caseId = doc.case_id
+    if (!map.has(caseId)) {
+      map.set(caseId, {
+        caseId,
+        caseNumber: doc.contract_cases?.case_number ?? '—',
+        employeeName: doc.contract_cases?.employees?.full_name ?? '—',
+        employeeId: doc.contract_cases?.employee_id,
+        endDate: doc.contract_cases?.current_end_date ?? null,
+        vigency: 'vigente',
+        daysLeft: null,
+        docs: [],
+      })
+    }
+    map.get(caseId)!.docs.push({
+      id: doc.id,
+      case_id: doc.case_id,
+      document_type: doc.document_type,
+      fecha_inicio: doc.fecha_inicio,
+      estado: doc.estado,
+      generated_at: doc.generated_at,
+    })
+  }
+
+  for (const group of map.values()) {
+    group.docs.sort((a, b) => {
+      if (a.document_type === 'INICIAL') return -1
+      if (b.document_type === 'INICIAL') return 1
+      return new Date(a.generated_at).getTime() - new Date(b.generated_at).getTime()
+    })
+    const inicial = group.docs.find((d) => d.document_type === 'INICIAL')
+    const effectiveEndDate = group.endDate ?? inicial?.fecha_inicio ?? null
+
+    // Use INICIAL's fecha_terminacion from original docs as fallback for endDate
+    const originalInicial = contracts.find(
+      (c) => c.case_id === group.caseId && c.document_type === 'INICIAL'
+    )
+    const resolvedEndDate = group.endDate ?? originalInicial?.fecha_terminacion ?? null
+    group.endDate = resolvedEndDate
+
+    const { status, daysLeft } = computeVigency(inicial?.fecha_inicio, resolvedEndDate)
+    group.vigency = status
+    group.daysLeft = daysLeft
+  }
+
+  const order: Record<VigencyStatus, number> = {
+    por_vencer: 0, vigente: 1, indefinido: 2, no_iniciado: 3, vencido: 4,
+  }
+  return Array.from(map.values()).sort((a, b) => {
+    const od = order[a.vigency] - order[b.vigency]
+    return od !== 0 ? od : b.caseNumber.localeCompare(a.caseNumber)
+  })
+}
 
 export default async function ContractsPage() {
   const [contracts, role] = await Promise.all([listContracts(), getUserRole()])
+  const cases = groupByCases(contracts)
 
   return (
     <div className="px-4 py-6 sm:px-6 max-w-5xl mx-auto space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="space-y-0.5">
           <h1 className="text-xl font-semibold tracking-tight">Contratos</h1>
-          <p className="text-sm text-muted-foreground">{contracts.length} en total</p>
+          <p className="text-sm text-muted-foreground">
+            {cases.length} expediente{cases.length !== 1 ? 's' : ''} · {contracts.length} documento{contracts.length !== 1 ? 's' : ''}
+          </p>
         </div>
         {role !== 'viewer' && (
-          <div className="flex gap-2">
-            <Link
-              href="/contracts/new"
-              className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
-            >
-              + Nuevo contrato
-            </Link>
-          </div>
+          <Link
+            href="/contracts/new"
+            className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors self-start"
+          >
+            + Nuevo contrato
+          </Link>
         )}
       </div>
 
-      {contracts.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-border p-12 text-center">
-          <FileText className="mx-auto h-8 w-8 text-muted-foreground mb-3" />
-          <p className="text-sm text-muted-foreground">No hay contratos registrados.</p>
-        </div>
-      ) : (
-        <div className="rounded-lg border border-border bg-card overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground bg-muted/40">
-                <th className="px-4 py-2.5 text-left hidden sm:table-cell">N° Contrato</th>
-                <th className="px-4 py-2.5 text-left">Empleado</th>
-                <th className="px-4 py-2.5 text-left hidden sm:table-cell">Tipo</th>
-                <th className="px-4 py-2.5 text-left hidden sm:table-cell">Inicio</th>
-                <th className="px-4 py-2.5 text-left">Estado</th>
-                <th className="px-4 py-2.5 text-right" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {contracts.map((c) => (
-                <tr key={c.id} className="hover:bg-muted/20 transition-colors">
-                  <td className="px-4 py-3 font-mono text-xs hidden sm:table-cell">{c.contract_number ?? '—'}</td>
-                  <td className="px-4 py-3">
-                    <span className="font-medium">{c.employees?.full_name ?? '—'}</span>
-                    {c.contract_number && (
-                      <span className="block font-mono text-xs text-muted-foreground sm:hidden">
-                        {c.contract_number}
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">{c.tipo_contrato ?? '—'}</td>
-                  <td className="px-4 py-3 font-mono text-xs text-muted-foreground hidden sm:table-cell">{c.fecha_inicio ?? '—'}</td>
-                  <td className="px-4 py-3">
-                    {c.estado === 'signed' ? (
-                      <span className="inline-flex items-center gap-1 font-mono text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-full px-2 py-0.5">
-                        <CheckSquare className="h-3 w-3" /> Firmado
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 font-mono text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-full px-2 py-0.5">
-                        <Clock className="h-3 w-3" /> Pendiente
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <Link
-                      href={`/contracts/${c.id}`}
-                      className="text-xs text-muted-foreground hover:text-primary transition-colors"
-                    >
-                      Ver →
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <ContractsList cases={cases} totalDocs={contracts.length} role={role} />
     </div>
   )
 }

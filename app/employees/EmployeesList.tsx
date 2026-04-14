@@ -11,12 +11,14 @@ const JORNADA_LABELS: Record<JornadaLaboral, string> = {
   tiempo_completo: 'Tiempo completo',
   medio_tiempo: 'Medio tiempo',
   prestacion_servicios: 'Prestación',
+  termino_indefinido: 'Indefinido',
 }
 
 const JORNADA_COLORS: Record<JornadaLaboral, string> = {
   tiempo_completo: 'text-cyan-400 bg-cyan-400/10 border-cyan-400/20',
   medio_tiempo: 'text-amber-400 bg-amber-400/10 border-amber-400/20',
   prestacion_servicios: 'text-violet-400 bg-violet-400/10 border-violet-400/20',
+  termino_indefinido: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20',
 }
 
 function formatCOP(value: number | null): string {
@@ -102,6 +104,7 @@ export default function EmployeesList({ role }: EmployeesListProps) {
             { label: 'Tiempo completo', value: byJornada('tiempo_completo') },
             { label: 'Medio tiempo', value: byJornada('medio_tiempo') },
             { label: 'Prestación', value: byJornada('prestacion_servicios') },
+            { label: 'Indefinido', value: byJornada('termino_indefinido') },
           ].map(({ label, value }) => (
             <div key={label} className="rounded-lg border border-border bg-card p-4">
               <p className={labelClass}>{label}</p>
@@ -129,6 +132,7 @@ export default function EmployeesList({ role }: EmployeesListProps) {
           <option value="tiempo_completo">Tiempo completo</option>
           <option value="medio_tiempo">Medio tiempo</option>
           <option value="prestacion_servicios">Prestación de servicios</option>
+          <option value="termino_indefinido">Término indefinido</option>
         </select>
         <button
           onClick={() => setShowInactive((v) => !v)}

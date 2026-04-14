@@ -4,20 +4,20 @@
 
 > Actualizar al cerrar cada sesión. Para detalles, ver las secciones de fase correspondientes abajo.
 
-- **Fase actual:** Phase 13 🔄 (en curso)
-- **Último cambio importante:** Arquitectura de sesión recursiva — `CLAUDE.md`, `docs/session-handoff.md`, Quick Orientation en systemDesign, este snapshot (2026-04-05)
+- **Fase actual:** Phase 14 🔄 (carga de contratos históricos + módulo de contratos pulido)
+- **Último cambio importante:** Rediseño del módulo de contratos — árbol de expedientes, vigencia visual, gap-fill de numeración, dashboard de estado contractual (2026-04-14)
 - **Pendientes inmediatos:**
-  - Verificar que PDF "Otro Sí" genera 2 páginas correctamente en producción
-  - ✅ ND-44 registrada formalmente en `decisions.md.md`
-  - ✅ Arquitectura de sesión recursiva completa (CLAUDE.md, docs/session-handoff.md, Quick Orientation, Current State Snapshot)
-  - Actualizar backbone docs cuando Phase 13 cierre completamente + hacer PR a `main`
-- **Bugs abiertos conocidos:** ninguno confirmado
-- **Siguiente milestone:** Phase 13 completa → commit + PR a `main`
+  - ⏳ Terminar carga de ~32 contratos físicos firmados (usuario en proceso)
+  - ⏳ Expediente 031 — Laura Ángela Ramírez Parra (metadatos pendientes)
+  - ⏳ PR a `main` al estabilizarse la carga
+- **Bugs abiertos conocidos:** ninguno
+- **Siguiente milestone:** Todos los contratos cargados → commit + PR a `main`
+- **⚠️ Infraestructura:** MCP Supabase apunta a `ukzccqogkbfdtymmgavj`; la app usa `qolnrtoznrgiedyhffbn`. Las migraciones SQL deben aplicarse manualmente en el Dashboard del proyecto correcto.
 
 ---
 
-> **Last updated:** 2026-04-05
-> **Status:** Phase 0 ✅ | Phase 1 ✅ | Phase 2 ✅ | Phase 3 ✅ | Phase 4 ✅ | Phase 5 ✅ | Phase 6 ✅ | Phase 7 ✅ | Phase 8 ✅ | Phase 9 ✅ | Phase 10 ✅ | Phase 11 ✅ | Phase 12 ✅ | Phase 12.x hotfixes ✅ | Phase 13 (user mgmt improvements) 🔄
+> **Last updated:** 2026-04-14
+> **Status:** Phase 0 ✅ | Phase 1 ✅ | Phase 2 ✅ | Phase 3 ✅ | Phase 4 ✅ | Phase 5 ✅ | Phase 6 ✅ | Phase 7 ✅ | Phase 8 ✅ | Phase 9 ✅ | Phase 10 ✅ | Phase 11 ✅ | Phase 12 ✅ | Phase 12.x hotfixes ✅ | Phase 13 ✅ | Phase 14 (contracts polish + historical data load) 🔄
 
 ## Stack
 

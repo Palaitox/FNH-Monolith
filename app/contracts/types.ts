@@ -1,16 +1,30 @@
-export type ContractEstado = 'generated' | 'signed'
+// ── Contract Cases (Expediente) ───────────────────────────────────────────
 
-export interface Contract {
+export interface ContractCase {
   id: string
   employee_id: string
-  template_id: string | null
-  contract_number: string | null
+  case_number: string
+  status: 'active' | 'closed'
+  current_end_date: string | null
+  created_at: string
+}
+
+// ── Contract Documents ────────────────────────────────────────────────────
+
+export type DocumentType = 'INICIAL' | 'PRORROGA' | 'OTRO_SI' | 'TERMINACION'
+export type DocumentEstado = 'generated' | 'signed'
+
+export interface ContractDocument {
+  id: string
+  case_id: string
+  document_type: DocumentType
+  /** Only set for INICIAL documents */
   tipo_contrato: string | null
   fecha_inicio: string | null
   fecha_terminacion: string | null
   forma_pago: string | null
-  estado: ContractEstado
-  docx_path: string | null
+  affects_term: boolean
+  estado: DocumentEstado
   pdf_path: string | null
   pdf_hash: string | null
   pdf_filename: string | null
@@ -18,13 +32,18 @@ export interface Contract {
   signed_at: string | null
 }
 
-export interface ContractWithEmployee extends Contract {
-  employees: { full_name: string } | null
+/** ContractDocument with its parent case and employee name joined */
+export interface ContractDocumentFull extends ContractDocument {
+  contract_cases: (ContractCase & {
+    employees: { full_name: string } | null
+  }) | null
 }
+
+// ── Audit log ─────────────────────────────────────────────────────────────
 
 export interface ContractAuditLog {
   id: string
-  contract_id: string
+  document_id: string
   user_id: string | null
   user_email: string | null
   action: string
@@ -32,7 +51,7 @@ export interface ContractAuditLog {
   created_at: string
 }
 
-// ── App settings ───────────────────────────────────────────────────────────
+// ── App settings ──────────────────────────────────────────────────────────
 
 export interface AppSettings {
   lugarTrabajo: string
@@ -43,7 +62,7 @@ export interface AppSettings {
   ciudadSede?: string
 }
 
-// ── Integrity verification ─────────────────────────────────────────────────
+// ── Integrity verification ────────────────────────────────────────────────
 
 export interface IntegrityResult {
   match: boolean
