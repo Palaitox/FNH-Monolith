@@ -20,6 +20,7 @@ interface Props {
   vehicle: Vehicle
   compliance: ComplianceResult
   requirements: DocumentRequirement[]
+  role: string | null
 }
 
 function DaysChip({ days }: { days: number | null }) {
@@ -42,7 +43,7 @@ const btnPrimary = "rounded-md bg-primary px-4 py-2 text-sm font-semibold text-p
 const btnSecondary = "rounded-md border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
 const fieldClass = "rounded-md border border-border bg-card px-2 py-1.5 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring transition-colors"
 
-export default function VehicleDetail({ vehicle, compliance, requirements }: Props) {
+export default function VehicleDetail({ vehicle, compliance, requirements, role }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -220,12 +221,12 @@ export default function VehicleDetail({ vehicle, compliance, requirements }: Pro
       {/* Actions */}
       <div className="flex items-center gap-2 flex-wrap">
         <Link href="/buses/vehicles" className={btnSecondary}>← Volver</Link>
-        {!showDocForm && (
+        {role !== 'viewer' && !showDocForm && (
           <button onClick={() => setShowDocForm(true)} className={btnPrimary}>
             Actualizar documentos
           </button>
         )}
-        {isActive && (
+        {role !== 'viewer' && isActive && (
           <button
             onClick={handleDeactivate}
             disabled={isPending}
@@ -238,7 +239,7 @@ export default function VehicleDetail({ vehicle, compliance, requirements }: Pro
             {deactivateConfirm ? 'Confirmar desactivación' : 'Desactivar vehículo'}
           </button>
         )}
-        {deactivateConfirm && (
+        {role !== 'viewer' && deactivateConfirm && (
           <button onClick={() => setDeactivateConfirm(false)} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
             Cancelar
           </button>

@@ -13,6 +13,7 @@ export type JornadaLaboral =
   | 'tiempo_completo'
   | 'medio_tiempo'
   | 'prestacion_servicios'
+  | 'termino_indefinido'
 
 export interface Employee {
   id: string

@@ -21,6 +21,7 @@ interface Props {
   driver: Driver
   compliance: ComplianceResult
   requirements: DocumentRequirement[]
+  role: string | null
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────
@@ -65,7 +66,7 @@ const fieldClass = "rounded-md border border-border bg-card px-2 py-1.5 text-xs 
 
 // ── Component ─────────────────────────────────────────────────────────────
 
-export default function DriverDetail({ driver, compliance, requirements }: Props) {
+export default function DriverDetail({ driver, compliance, requirements, role }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -325,12 +326,12 @@ export default function DriverDetail({ driver, compliance, requirements }: Props
       {/* Actions */}
       <div className="flex items-center gap-2 flex-wrap">
         <Link href="/buses/drivers" className={btnSecondary}>← Volver</Link>
-        {!showDocForm && (
+        {role !== 'viewer' && !showDocForm && (
           <button onClick={() => setShowDocForm(true)} className={btnPrimary}>
             Registrar documentos
           </button>
         )}
-        {isActive && (
+        {role !== 'viewer' && isActive && (
           <button
             onClick={handleDeactivate}
             disabled={isPending}
@@ -343,23 +344,25 @@ export default function DriverDetail({ driver, compliance, requirements }: Props
             {deactivateConfirm ? 'Confirmar desactivación' : 'Desactivar conductor'}
           </button>
         )}
-        {deactivateConfirm && (
+        {role !== 'viewer' && deactivateConfirm && (
           <button onClick={() => setDeactivateConfirm(false)} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
             Cancelar
           </button>
         )}
-        <button
-          onClick={handleDelete}
-          disabled={isPending}
-          className={`rounded-md px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50 ${
-            deleteConfirm
-              ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90'
-              : 'border border-destructive/40 text-destructive/70 hover:border-destructive hover:text-destructive'
-          }`}
-        >
-          {deleteConfirm ? 'Confirmar eliminación permanente' : 'Eliminar conductor'}
-        </button>
-        {deleteConfirm && (
+        {role !== 'viewer' && (
+          <button
+            onClick={handleDelete}
+            disabled={isPending}
+            className={`rounded-md px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50 ${
+              deleteConfirm
+                ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90'
+                : 'border border-destructive/40 text-destructive/70 hover:border-destructive hover:text-destructive'
+            }`}
+          >
+            {deleteConfirm ? 'Confirmar eliminación permanente' : 'Eliminar conductor'}
+          </button>
+        )}
+        {role !== 'viewer' && deleteConfirm && (
           <button onClick={() => setDeleteConfirm(false)} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
             Cancelar
           </button>

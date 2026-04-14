@@ -1,9 +1,9 @@
 import Link from 'next/link'
-import { getDashboardStats } from '@/app/contracts/actions/contracts'
+import { getDashboardStats, getEmployeeContractStatusAction } from '@/app/contracts/actions/contracts'
 import { getFleetComplianceAction } from '@/app/buses/actions/buses'
 import { getUserRole } from '@/app/(shared)/lib/auth'
 import { StatusBadge } from '@/app/buses/components/StatusBadge'
-import { FileText, Users, CheckSquare, Clock, Bus } from 'lucide-react'
+import { FileText, Users, CheckSquare, Clock, Bus, AlertTriangle, UserCheck } from 'lucide-react'
 import type { DocumentStatus } from '@/app/buses/types'
 
 const STATUS_ORDER: DocumentStatus[] = ['Crítico', 'Alerta', 'Seguimiento', 'Vigente']
@@ -30,10 +30,11 @@ const STATUS_NUM: Record<DocumentStatus, string> = {
 }
 
 export default async function DashboardPage() {
-  const [stats, fleet, role] = await Promise.all([
+  const [stats, fleet, role, contractStatus] = await Promise.all([
     getDashboardStats(),
     getFleetComplianceAction(),
     getUserRole(),
+    getEmployeeContractStatusAction(),
   ])
 
   const contractCards = [
@@ -79,6 +80,100 @@ export default async function DashboardPage() {
             </div>
           ))}
         </div>
+      </section>
+
+      {/* ── Employee contract status ─────────────────────────────────────── */}
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+            <UserCheck className="h-3.5 w-3.5" />
+            Estado contractual de empleados
+          </h2>
+          <Link href="/contracts" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+            Ver contratos →
+          </Link>
+        </div>
+
+        {/* Summary cards */}
+        <div className="grid grid-cols-3 gap-3">
+          <div className={`rounded-lg border p-4 ${contractStatus.sinContrato.length > 0 ? 'border-rose-500/30 bg-rose-900/10' : 'border-border bg-card'}`}>
+            <div className="flex items-center gap-2 mb-2">
+              {contractStatus.sinContrato.length > 0
+                ? <AlertTriangle className="h-3.5 w-3.5 text-rose-400" />
+                : <CheckSquare className="h-3.5 w-3.5 text-muted-foreground" />}
+              <span className="text-xs text-muted-foreground">Sin contrato vigente</span>
+            </div>
+            <p className={`text-2xl font-mono font-semibold ${contractStatus.sinContrato.length > 0 ? 'text-rose-400' : ''}`}>
+              {contractStatus.sinContrato.length}
+            </p>
+          </div>
+          <div className={`rounded-lg border p-4 ${contractStatus.pendienteFirma.length > 0 ? 'border-amber-500/30 bg-amber-900/10' : 'border-border bg-card'}`}>
+            <div className="flex items-center gap-2 mb-2">
+              <Clock className={`h-3.5 w-3.5 ${contractStatus.pendienteFirma.length > 0 ? 'text-amber-400' : 'text-muted-foreground'}`} />
+              <span className="text-xs text-muted-foreground">Pendientes de firma</span>
+            </div>
+            <p className={`text-2xl font-mono font-semibold ${contractStatus.pendienteFirma.length > 0 ? 'text-amber-400' : ''}`}>
+              {contractStatus.pendienteFirma.length}
+            </p>
+          </div>
+          <div className="rounded-lg border border-emerald-500/20 bg-emerald-900/10 p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <CheckSquare className="h-3.5 w-3.5 text-emerald-400" />
+              <span className="text-xs text-muted-foreground">Con contrato vigente</span>
+            </div>
+            <p className="text-2xl font-mono font-semibold text-emerald-400">
+              {contractStatus.vigentes.length}
+            </p>
+          </div>
+        </div>
+
+        {/* Sin contrato — most urgent */}
+        {contractStatus.sinContrato.length > 0 && (
+          <div className="rounded-lg border border-rose-500/20 overflow-hidden">
+            <div className="px-4 py-2.5 bg-rose-900/10 border-b border-rose-500/20">
+              <p className="text-xs font-medium text-rose-400 uppercase tracking-wide">
+                Sin contrato vigente ({contractStatus.sinContrato.length})
+              </p>
+            </div>
+            <div className="divide-y divide-border">
+              {contractStatus.sinContrato.map((emp) => (
+                <Link
+                  key={emp.id}
+                  href={`/employees/${emp.id}`}
+                  className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/20 transition-colors"
+                >
+                  <span className="text-sm font-medium">{emp.full_name}</span>
+                  <span className="text-xs text-muted-foreground hover:text-primary transition-colors">Ver →</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Pendientes de firma */}
+        {contractStatus.pendienteFirma.length > 0 && (
+          <div className="rounded-lg border border-amber-500/20 overflow-hidden">
+            <div className="px-4 py-2.5 bg-amber-900/10 border-b border-amber-500/20">
+              <p className="text-xs font-medium text-amber-400 uppercase tracking-wide">
+                Pendientes de firma ({contractStatus.pendienteFirma.length})
+              </p>
+            </div>
+            <div className="divide-y divide-border">
+              {contractStatus.pendienteFirma.map((emp) => (
+                <Link
+                  key={emp.id}
+                  href={`/contracts?search=${encodeURIComponent(emp.full_name)}`}
+                  className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/20 transition-colors"
+                >
+                  <span className="text-sm font-medium">{emp.full_name}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {emp.caseNumber ?? '—'}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
       </section>
 
       {/* ── Fleet compliance ────────────────────────────────────────────── */}

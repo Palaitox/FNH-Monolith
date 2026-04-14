@@ -1,5 +1,28 @@
 # FNH Modular Monolith — Final System v5.1
 
+## Quick Orientation
+
+**Qué es esto:** Monolito modular Next.js 15 para gestión de contratos, empleados y flota de buses de Fundación Nuevo Horizonte.
+
+**Orden de lectura para una sesión nueva:**
+1. `docs/session-handoff.md` — estado operativo inmediato (qué se hizo, qué falta, qué no romper)
+2. `implementation_plan.md.md` → sección "Current State Snapshot" — fase actual y pendientes
+3. `decisions.md.md` — antes de cambiar cualquier comportamiento existente, verificar si hay una ND que lo explique
+4. Este documento — solo si necesitas entender schema, componentes o flujos en detalle
+
+**Rutas críticas (no tocar sin leer la ND correspondiente):**
+- `middleware.ts` → ND-13 (getClaims vs getUser)
+- `app/contracts/lib/contract-pdf.tsx` → ND-35, ND-36 (browser-only)
+- `app/admin/actions/users.ts` → ND-42 (FK order en delete)
+- `app/(shared)/lib/buses/report-builder.ts` → ND-14 (DISTINCT ON en JS)
+
+**Fuentes de verdad:**
+- Schema SQL canónico: `Schema.sql.md`
+- Decisiones con rationale: `decisions.md.md`
+- Estado de fases: `implementation_plan.md.md`
+
+---
+
 > **Last updated:** 2026-04-04
 > **Applied migrations:** 0001_initial.sql, 0002_extend_contracts.sql, 0003_seed_document_requirements.sql, 0004_rls.sql, 0005_storage_policies.sql, 0006_update_vehicle_requirements.sql, 0007_servitrans_driver_requirements.sql, 0008_employees_softdelete.sql, 0009_users_softdelete.sql, 0010_drop_contract_templates.sql
 > For the authoritative schema file see `Schema.sql.md`.
@@ -287,6 +310,8 @@ See `decisions.md.md` for the full register with rationale. Summary of IDs:
 | ND-39 | "PDF firmado" section gated on `(isSignedState \|\| !!contract.pdf_path)` — hidden on pending contracts with no PDF |
 | ND-40 | Mobile-first responsive layout: `px-4 py-6 sm:px-6` outer padding; hamburger nav below `md`; `overflow-x-auto` + `hidden sm:table-cell` on tables; `grid-cols-1 sm:grid-cols-2` for form grids; `flex-col sm:flex-row sm:items-center` for headers and info rows |
 | ND-41 | Three iOS Safari restrictions patched: (1) blob URL `<a download>` navigates current page → skip download on mobile, DB write first; (2) `window.resize` on toolbar animation clears `signature_pad` → save/restore `pad.toData()`/`pad.fromData()`; (3) `window.open()` after `await` blocked as popup → open blank window synchronously, set `location.href` after async call |
+| ND-42 | `deleteUserAction` hard-deletes a user: `public.users` first (FK order), then `auth.users` via Admin API (service client); self-deletion guard; two-click confirmation in `UserDetail.tsx` danger zone; navigates to `/admin` on success. `updateRoleAction` also uses service client. |
+| ND-43 | Invite `redirectTo` points to `/auth/invite` (Client Component), not `/auth/callback` (route handler). Client Component reads `window.location.hash` for implicit-flow tokens (`access_token`/`refresh_token`) and calls `setSession()`; PKCE `code` query param handled as fallback via `exchangeCodeForSession()`. Always redirects to `/auth/set-password`. |
 
 ---
 
@@ -442,16 +467,26 @@ app/
 │
 ├── admin/
 │   ├── actions/
-│   │   └── users.ts            ← 'use server': listUsers, getUser, inviteUser, updateRole, deactivate, reactivate (all require admin)
+│   │   └── users.ts            ← 'use server': listUsers, getUser, inviteUser, updateRole (service client, ND-42), deactivate, reactivate, deleteUser (ND-42); all require admin
 │   ├── users/
 │   │   ├── new/
 │   │   │   └── page.tsx        ← invite form: name, email, role selector
 │   │   └── [id]/
 │   │       ├── page.tsx        ← Server Component; fetches user + claims in parallel
-│   │       └── UserDetail.tsx  ← 'use client'; inline role editor, deactivate/reactivate with confirmation, self-guard (ND-34)
+│   │       └── UserDetail.tsx  ← 'use client'; inline role editor, deactivate/reactivate/hard-delete with confirmation, self-guard (ND-34, ND-42)
 │   ├── layout.tsx              ← redirects non-admin to /dashboard at layout level
 │   ├── page.tsx                ← user list: 3 stats cards (activos/coordinadores/consultores), active table, collapsed inactive section
 │   └── types.ts                ← AppUserRole, AppUser, ROLE_LABELS, ROLE_COLORS
+│
+├── auth/
+│   ├── callback/
+│   │   └── route.ts            ← PKCE code exchange → session → redirect to `next` param
+│   ├── invite/
+│   │   └── page.tsx            ← 'use client'; reads hash tokens (implicit flow) + PKCE fallback → /auth/set-password (ND-43)
+│   ├── set-password/
+│   │   └── page.tsx            ← 'use client'; set initial password for invited user → /dashboard
+│   └── login/
+│       └── page.tsx            ← Supabase signInWithPassword form
 │
 └── api/
     └── cron/
@@ -480,8 +515,10 @@ app/
 | `api/cron/route.ts` | Daily batch: recalculate statuses, detect transitions, fire notifications, write system_logs |
 | `(app)/AppNav.tsx` | Navigation shell; 'use client'; active link via usePathname; sign out; "Admin" link for admins only; sticky top-0 z-40; hamburger menu (md:hidden) with dropdown on mobile — all nav links + right actions are `hidden md:flex` on desktop (ND-40) |
 | `admin/layout.tsx` | Hard-redirects non-admins to `/dashboard`; admin-only gate for the entire `admin/` segment |
-| `admin/actions/users.ts` | All user management Server Actions; all gated with `requireRole('admin')`; invite via Auth Admin API with rollback (ND-33); self-guard on role change + deactivation (ND-34) |
-| `admin/users/[id]/UserDetail.tsx` | Inline role editor (dropdown + save/cancel); deactivate/reactivate with confirmation step; "Tú" badge; danger zone hidden for self |
+| `admin/actions/users.ts` | All user management Server Actions; all gated with `requireRole('admin')`; invite via Auth Admin API with rollback (ND-33); self-guard on role change + deactivation (ND-34); `deleteUserAction` hard-deletes auth + DB rows (ND-42) |
+| `admin/users/[id]/UserDetail.tsx` | Inline role editor (dropdown + save/cancel); deactivate/reactivate with confirmation; hard-delete with two-click confirmation (ND-42); "Tú" badge; danger zone hidden for self |
+| `auth/invite/page.tsx` | Client Component; on mount reads hash tokens (implicit flow) or code param (PKCE); establishes session; redirects to `/auth/set-password` (ND-43) |
+| `auth/set-password/page.tsx` | Client Component; set initial password for invited user (min 8 chars); redirects to `/dashboard` |
 | `*/layout.tsx` (segment wrappers) | Per-segment thin layouts injecting AppNav into dashboard/, contracts/, buses/, employees/ without moving page files |
 
 ### External Integrations
@@ -504,9 +541,10 @@ CRON_SECRET                            ← 64-char hex; verified in cron Authori
 RESEND_API_KEY
 RESEND_FROM_EMAIL                      ← sender; "FNH <onboarding@resend.dev>" works on Resend free tier; verified domain required otherwise
 NOTIFICATION_RECIPIENT                 ← comma-separated list of recipients for all Crítico-transition alerts (5 addresses configured in production)
+NEXT_PUBLIC_APP_URL                    ← base URL for invite redirectTo (e.g. https://fnh-monolith.vercel.app); fallback hardcoded in inviteUserAction
 ```
 
-> All 7 env vars are set in Vercel production. `notifications.ts` parses `NOTIFICATION_RECIPIENT` as `split(',').map(s => s.trim()).filter(Boolean)` and sends to all addresses.
+> All 8 env vars are set in Vercel production. Supabase Dashboard → Authentication → URL Configuration must include `${NEXT_PUBLIC_APP_URL}/auth/invite` in Redirect URLs. `notifications.ts` parses `NOTIFICATION_RECIPIENT` as `split(',').map(s => s.trim()).filter(Boolean)` and sends to all addresses.
 
 ---
 

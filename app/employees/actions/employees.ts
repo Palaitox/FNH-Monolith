@@ -144,9 +144,9 @@ export async function deleteEmployeeAction(id: string): Promise<void> {
   await requireRole('admin')
   const supabase = await createClient()
 
-  // Guard: abort if any contracts reference this employee
+  // Guard: abort if any contract cases reference this employee
   const { count, error: countError } = await supabase
-    .from('contracts')
+    .from('contract_cases')
     .select('id', { count: 'exact', head: true })
     .eq('employee_id', id)
 

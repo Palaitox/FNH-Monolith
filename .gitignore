@@ -38,6 +38,12 @@ tests/.auth
 # claude code local config
 .claude/
 
+# working documents / research (not part of the codebase)
+investigacionMejoras.txt
+template_tiempo_completo\ final.docx.pdf
+template_tiempo_parcial\ final.docx.pdf
+template_prestacion_servicios\ final.docx.pdf
+
 # playwright mcp artifacts
 .playwright-mcp/
 

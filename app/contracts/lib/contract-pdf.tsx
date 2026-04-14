@@ -5,10 +5,11 @@
  * inside an event handler. It must never be statically imported at the module level
  * of any Server Component, Server Action, or page file.
  *
- * Three contract types:
- *   tiempo_completo      → ContratoLaboralCompleto
- *   medio_tiempo         → ContratoLaboralParcial
+ * Four contract types:
+ *   tiempo_completo      → ContratoLaboral (título completo)
+ *   medio_tiempo         → ContratoLaboral (título parcial)
  *   prestacion_servicios → ContratoPrestacionServicios
+ *   otro_si              → OtroSi
  */
 
 import React from 'react'
@@ -900,6 +901,102 @@ function ContratoPrestacionServicios({ v }: { v: ContractVars }) {
   )
 }
 
+// ── Otro Sí ─────────────────────────────────────────────────────────────────
+
+function OtroSi({ v }: { v: ContractVars }) {
+  const jornadaLabel = v.trabajador_jornada ?? 'JORNADA COMPLETA'
+  const mesUpper = (v.mes_inicio ?? '').toUpperCase()
+
+  const fullWidthBold = {
+    fontFamily: 'Times-Bold' as const,
+    fontSize: 9,
+    borderRight: '1pt solid #000' as const,
+    paddingHorizontal: 4,
+    paddingVertical: 3,
+    flex: 1,
+  }
+
+  return (
+    <Document>
+      <Page style={S.page}>
+        <PageHeader />
+        <PageFooter />
+
+        <View style={S.table}>
+          <View style={S.tableRow}>
+            <Text style={fullWidthBold}>
+              {'OTRO SI AL CONTRATO LABORAL A TÉRMINO FIJO INFERIOR A UN AÑO – '}{jornadaLabel}
+            </Text>
+          </View>
+          <View style={S.tableRow}>
+          <Text style={{ ...fullWidthBold, textAlign: 'center' }}>
+            {'N°. '}{v.contrato_numero}
+          </Text>
+        </View>
+        <TR label="NOMBRE EMPLEADOR:" value="FUNDACIÓN NUEVO HORIZONTE NIT: 821.003.251-4" />
+        <TR label="NOMBRE TRABAJADOR:" value={`${v.trabajador_nombre}  C. C. No. ${v.trabajador_cedula}`} />
+        <TR label="CARGO:" value={v.trabajador_cargo} />
+        <TR label="FECHA:" value="16 DE MARZO DEL AÑO 2026" />
+      </View>
+
+      <Text style={S.body}>
+        {'Entre los suscritos, a saber '}
+          <B>{'DORA PATRICIA CARMONA SOTO'}</B>
+          {', mayor de edad, identificada con la cédula de ciudadanía '}
+          <B>{'N° 29.158.068 expedida en Ansermanuevo (Valle del Cauca)'}</B>
+          {', en su calidad de Representante Legal de la '}
+          <B>{'FUNDACION NUEVO HORIZONTE NIT 821.003.251-4'}</B>
+          {' y con domicilio principal en la ciudad de Guadalajara de Buga, quien para efectos del presente documento se denominará el '}
+          <B>{'EMPLEADOR'}</B>
+          {', y por otra parte, '}
+          <B>{v.trabajador_nombre}</B>
+          {', también mayor de edad, identificada/o con la cédula de ciudadanía '}
+          <B>{`N° ${v.trabajador_cedula}`}</B>
+          {', quien se denominará el '}
+          <B>{'TRABAJADOR'}</B>
+          {', hemos acordado Por mutuo acuerdo de manera libre y voluntaria suscribir el presente '}
+          <B>{'OTROSÍ'}</B>
+          {' para modificar la forma de pago; bajo las siguientes consideraciones:'}
+        </Text>
+
+        <Text style={S.body}>
+          <B>{'PRIMERA. FORMA DE PAGO'}</B>
+          {': Las partes acuerdan modificar '}
+          <B>{'LA FORMA DE PAGO'}</B>
+          {' del contrato de trabajo vigente. A partir de la firma del presente documento, el pago del salario mensual se realizará dentro del periodo comprendido entre los días '}
+          <B>{'quince (15) y veinte (20)  de cada mes calendario.'}</B>
+        </Text>
+
+        <Text style={S.body}>
+          {'El presente '}
+          <B>{'OTROSÍ'}</B>
+          {' rige a partir de la fecha de su firma y las demás cláusulas del contrato de trabajo original que no fueron modificadas, ni nombradas por este documento permanecen vigentes y sin cambio alguno.'}
+        </Text>
+
+        <Text style={S.body}>
+          {'Para constancia de lo anterior, se firma en dos (2) ejemplares del mismo tenor y valor, ante testigos en Guadalajara de Buga – Valle del Cauca a los dieciséis días del mes de MARZO de 2026.'}
+        </Text>
+
+        <View style={S.sigRow}>
+          <View style={S.sigCol}>
+            <Text style={S.sigLabel}>{'EL EMPLEADOR'}</Text>
+            <Text style={{ height: 40 }} />
+            <Text style={S.sigName}>{'DORA PATRICIA CARMONA SOTO'}</Text>
+            <Text style={S.sigLine}>{'C.C. No. 29.158.068 de Ansermanuevo'}</Text>
+            <Text style={S.sigLine}>{'Representante Legal'}</Text>
+          </View>
+          <View style={S.sigCol}>
+            <Text style={S.sigLabel}>{'EL TRABAJADOR'}</Text>
+            <SigSpace firma={v.firma} />
+            <Text style={S.sigName}>{v.trabajador_nombre}</Text>
+            <Text style={S.sigLine}>{`C.C. No. ${v.trabajador_cedula}`}</Text>
+          </View>
+        </View>
+      </Page>
+    </Document>
+  )
+}
+
 // ── Public export ───────────────────────────────────────────────────────────
 
 export async function generateContractPdf(vars: ContractVars, tipo: string): Promise<Blob> {
@@ -909,6 +1006,8 @@ export async function generateContractPdf(vars: ContractVars, tipo: string): Pro
     doc = <ContratoLaboral v={vars} titulo="A TÉRMINO FIJO INFERIOR A UN AÑO" octavaBody={OCTAVA_COMPLETO} />
   } else if (tipo === 'medio_tiempo') {
     doc = <ContratoLaboral v={vars} titulo="A TÉRMINO FIJO INFERIOR A UN AÑO DE TIEMPO PARCIAL" octavaBody={OCTAVA_PARCIAL} />
+  } else if (tipo === 'otro_si') {
+    doc = <OtroSi v={vars} />
   } else {
     doc = <ContratoPrestacionServicios v={vars} />
   }

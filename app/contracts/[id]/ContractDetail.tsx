@@ -11,22 +11,30 @@ import {
   getAppSettings,
 } from '@/app/contracts/actions/contracts'
 import { verifyContractIntegrity } from '@/app/contracts/actions/verify-integrity'
-import type { ContractWithEmployee, ContractAuditLog } from '@/app/contracts/types'
+import type { ContractDocumentFull, ContractAuditLog } from '@/app/contracts/types'
 import type { Employee } from '@/app/(shared)/lib/employee-types'
 import { hashData } from '@/app/contracts/lib/security'
 import SignatureModal from './SignatureModal'
 
 interface Props {
-  contract: ContractWithEmployee
+  contract: ContractDocumentFull
   auditLogs: ContractAuditLog[]
   employee: Employee | null
+  role: 'admin' | 'coordinator' | 'viewer' | null
+}
+
+const DOCTYPE_LABEL: Record<string, string> = {
+  INICIAL:     'Contrato inicial',
+  PRORROGA:    'Prórroga',
+  OTRO_SI:     'Otro Sí',
+  TERMINACION: 'Terminación',
 }
 
 const STORAGE_BUCKET = 'contracts'
 const labelClass = "text-xs font-medium uppercase tracking-wide text-muted-foreground"
 const btnSecondary = "rounded-md border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
 
-export default function ContractDetail({ contract, auditLogs, employee }: Props) {
+export default function ContractDetail({ contract, auditLogs, employee, role }: Props) {
   const router = useRouter()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isPending, startTransition] = useTransition()
@@ -36,8 +44,10 @@ export default function ContractDetail({ contract, auditLogs, employee }: Props)
   const [showSignatureModal, setShowSignatureModal] = useState(false)
   const [signing, setSigning] = useState(false)
   const [signError, setSignError] = useState<string | null>(null)
+  const [justSigned, setJustSigned] = useState(false)
 
   const [openingPdf, setOpeningPdf] = useState(false)
+  const [openPdfError, setOpenPdfError] = useState<string | null>(null)
   const [verifying, setVerifying] = useState(false)
   const [integrityResult, setIntegrityResult] = useState<{
     match: boolean
@@ -46,13 +56,16 @@ export default function ContractDetail({ contract, auditLogs, employee }: Props)
     reason?: string
   } | null>(null)
 
+  const caseNumber = contract.contract_cases?.case_number ?? '—'
+  const employeeName = contract.contract_cases?.employees?.full_name ?? '—'
+
   async function handlePdfUpload(file: File) {
     setUploadError(null)
     setUploading(true)
     try {
       const buffer = await file.arrayBuffer()
       const hash = await hashData(buffer)
-      const pdfPath = `pdf/${contract.contract_number ?? contract.id}_${Date.now()}.pdf`
+      const pdfPath = `pdf/${caseNumber}_${Date.now()}.pdf`
       const supabase = createClient()
       const { error: upErr } = await supabase.storage
         .from(STORAGE_BUCKET)
@@ -80,19 +93,23 @@ export default function ContractDetail({ contract, auditLogs, employee }: Props)
       ])
 
       const baseVars = buildContractVars(employee, {
-        numeroContrato: contract.contract_number ?? '',
+        numeroContrato: caseNumber,
         fechaInicio: contract.fecha_inicio ?? '',
         fechaTerminacion: contract.fecha_terminacion ?? undefined,
         lugarTrabajo: settings.lugarTrabajo,
       })
       const vars = { ...baseVars, firma: signatureDataUrl }
 
-      const pdfBlob = await generateContractPdf(vars, contract.tipo_contrato ?? '')
+      const tipoForPdf = contract.document_type === 'INICIAL'
+        ? (contract.tipo_contrato ?? '')
+        : contract.document_type.toLowerCase()
+
+      const pdfBlob = await generateContractPdf(vars, tipoForPdf)
       const buffer = await pdfBlob.arrayBuffer()
       const hash = await hashData(buffer)
 
-      const filename = `contrato_${contract.contract_number}_firmado.pdf`
-      const pdfPath = `pdf/${contract.contract_number ?? contract.id}_signed.pdf`
+      const filename = `contrato_${caseNumber}_firmado.pdf`
+      const pdfPath = `pdf/${caseNumber}_signed.pdf`
       const supabase = createClient()
       const { error: upErr } = await supabase.storage
         .from(STORAGE_BUCKET)
@@ -101,9 +118,8 @@ export default function ContractDetail({ contract, auditLogs, employee }: Props)
 
       await attachSignedPdfAction(contract.id, pdfPath, filename, hash)
 
-      // Trigger browser download — desktop only.
-      // On iOS Safari, a.click() on a blob URL navigates the current page,
-      // causing "Load Failed" and killing attachSignedPdfAction before it runs.
+      setJustSigned(true)
+
       const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
       if (!isMobile) {
         try {
@@ -116,7 +132,7 @@ export default function ContractDetail({ contract, auditLogs, employee }: Props)
           document.body.removeChild(a)
           setTimeout(() => URL.revokeObjectURL(url), 1000)
         } catch {
-          // ignore — contract is already signed and saved
+          // ignore
         }
       }
 
@@ -131,25 +147,22 @@ export default function ContractDetail({ contract, auditLogs, employee }: Props)
   async function handleOpenPdf() {
     if (!contract.pdf_path) return
     setOpeningPdf(true)
-    // Open the window synchronously while still inside the click-handler's
-    // user-gesture context. iOS Safari blocks window.open() called after
-    // any await, treating it as an unsolicited popup.
-    const newWindow = window.open('', '_blank', 'noopener')
+    setOpenPdfError(null)
+    const newWindow = window.open('', '_blank')
     try {
       const supabase = createClient()
       const { data, error } = await supabase.storage
         .from(STORAGE_BUCKET)
         .createSignedUrl(contract.pdf_path, 3600)
-      if (error || !data) throw new Error('No se pudo generar el enlace.')
+      if (error || !data) throw new Error('No se pudo generar el enlace al PDF.')
       if (newWindow) {
         newWindow.location.href = data.signedUrl
       } else {
-        // Popup was blocked — fall back to same-tab navigation
         window.location.href = data.signedUrl
       }
     } catch (e) {
       newWindow?.close()
-      console.error(e)
+      setOpenPdfError(e instanceof Error ? e.message : 'Error al abrir el PDF.')
     } finally {
       setOpeningPdf(false)
     }
@@ -176,7 +189,7 @@ export default function ContractDetail({ contract, auditLogs, employee }: Props)
     <>
       {showSignatureModal && (
         <SignatureModal
-          workerName={contract.employees?.full_name ?? ''}
+          workerName={employeeName}
           onConfirm={handleSignatureConfirmed}
           onClose={() => setShowSignatureModal(false)}
         />
@@ -184,13 +197,23 @@ export default function ContractDetail({ contract, auditLogs, employee }: Props)
 
       <div className="px-4 py-6 sm:px-6 max-w-3xl mx-auto space-y-8">
 
+        {justSigned && (
+          <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-4 flex items-start gap-3">
+            <CheckSquare className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" />
+            <div className="space-y-0.5">
+              <p className="text-sm font-semibold text-emerald-400">Contrato firmado exitosamente</p>
+              <p className="text-xs text-emerald-400/80">
+                El PDF firmado fue guardado. Puedes verlo en la sección de abajo.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-3">
-              <h1 className="text-xl font-semibold tracking-tight">
-                {contract.employees?.full_name ?? '—'}
-              </h1>
+              <h1 className="text-xl font-semibold tracking-tight">{employeeName}</h1>
               {isSignedState ? (
                 <span className="inline-flex items-center gap-1 font-mono text-xs font-medium text-emerald-500 border border-emerald-500/20 bg-emerald-500/10 rounded-full px-2.5 py-0.5">
                   <CheckSquare className="h-3 w-3" /> Firmado
@@ -201,13 +224,16 @@ export default function ContractDetail({ contract, auditLogs, employee }: Props)
                 </span>
               )}
             </div>
-            <p className="font-mono text-sm text-muted-foreground">{contract.contract_number ?? '—'}</p>
+            <p className="font-mono text-sm text-muted-foreground">{caseNumber}</p>
           </div>
         </div>
 
         {/* Contract info */}
         <div className="rounded-lg border border-border divide-y divide-border/60">
-          <Row label="Tipo de contrato" value={contract.tipo_contrato} />
+          <Row label="Tipo de documento" value={DOCTYPE_LABEL[contract.document_type] ?? contract.document_type} />
+          {contract.document_type === 'INICIAL' && (
+            <Row label="Tipo de contrato" value={contract.tipo_contrato} />
+          )}
           <Row label="Fecha de inicio" value={contract.fecha_inicio} mono />
           <Row label="Fecha de terminación" value={contract.fecha_terminacion} mono />
           <Row label="Forma de pago" value={contract.forma_pago} />
@@ -231,8 +257,8 @@ export default function ContractDetail({ contract, auditLogs, employee }: Props)
           )}
         </div>
 
-        {/* Signature capture */}
-        {!isSignedState && employee && (
+        {/* Signature capture — coordinator and admin only */}
+        {!isSignedState && employee && role !== 'viewer' && (
           <section className="rounded-lg border border-border bg-card p-5 space-y-3">
             <h2 className={labelClass}>Firma presencial</h2>
             <p className="text-sm text-muted-foreground">
@@ -255,14 +281,13 @@ export default function ContractDetail({ contract, auditLogs, employee }: Props)
           </section>
         )}
 
-        {/* PDF section — only shown once the contract has been signed or a PDF already exists */}
+        {/* PDF section */}
         {(isSignedState || !!contract.pdf_path) && (
         <section className="rounded-lg border border-border bg-card p-5 space-y-4">
           <h2 className={labelClass}>PDF firmado</h2>
 
           {contract.pdf_path ? (
             <div className="space-y-4">
-              {/* Filename + actions row */}
               <div className="flex items-center gap-3 flex-wrap">
                 <p className="font-mono text-sm text-muted-foreground flex-1 min-w-0 truncate">
                   {contract.pdf_filename ?? contract.pdf_path}
@@ -276,8 +301,12 @@ export default function ContractDetail({ contract, auditLogs, employee }: Props)
                   {openingPdf ? 'Abriendo…' : 'Ver PDF'}
                 </button>
               </div>
+              {openPdfError && (
+                <p className="font-mono text-xs text-destructive bg-destructive/10 rounded px-3 py-1.5">
+                  {openPdfError}
+                </p>
+              )}
 
-              {/* Integrity */}
               <div className="space-y-2">
                 <button
                   onClick={handleVerifyIntegrity}
@@ -304,7 +333,6 @@ export default function ContractDetail({ contract, auditLogs, employee }: Props)
                 )}
               </div>
 
-              {/* Replace — collapsible feel via details */}
               <details className="group">
                 <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground transition-colors list-none flex items-center gap-1">
                   <span className="group-open:hidden">▸ Reemplazar PDF firmado</span>
@@ -357,22 +385,30 @@ export default function ContractDetail({ contract, auditLogs, employee }: Props)
         {/* Actions */}
         <div className="flex items-center gap-2 flex-wrap">
           <Link href="/contracts" className={btnSecondary}>← Volver</Link>
-          <button
-            onClick={handleDelete}
-            disabled={isPending}
-            className={`inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-md transition-colors disabled:opacity-50 ${
-              deleteConfirm
-                ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90'
-                : 'border border-border text-muted-foreground hover:text-foreground hover:bg-muted/30'
-            }`}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-            {deleteConfirm ? 'Confirmar eliminación' : 'Eliminar'}
-          </button>
-          {deleteConfirm && (
-            <button onClick={() => setDeleteConfirm(false)} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-              Cancelar
-            </button>
+          {role === 'admin' && (
+            <>
+              <button
+                onClick={handleDelete}
+                disabled={isPending}
+                className={`inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-md transition-colors disabled:opacity-50 ${
+                  deleteConfirm
+                    ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90'
+                    : 'border border-border text-muted-foreground hover:text-foreground hover:bg-muted/30'
+                }`}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                {deleteConfirm
+                  ? isSignedState
+                    ? '¿Eliminar contrato firmado? Esto es irreversible'
+                    : 'Confirmar eliminación'
+                  : 'Eliminar'}
+              </button>
+              {deleteConfirm && (
+                <button onClick={() => setDeleteConfirm(false)} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                  Cancelar
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>

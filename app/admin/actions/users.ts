@@ -56,7 +56,12 @@ export async function inviteUserAction(input: {
   const supabase = await createSupabaseServiceClient()
 
   // Step 1: invite via Supabase Auth (sends setup email to the user)
-  const { data, error: authError } = await supabase.auth.admin.inviteUserByEmail(email)
+  // redirectTo sends the user back to our app to set their password,
+  // not to the Supabase hosted UI.
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://fnh-monolith.vercel.app'
+  const { data, error: authError } = await supabase.auth.admin.inviteUserByEmail(email, {
+    redirectTo: `${appUrl}/auth/invite`,
+  })
   if (authError) {
     if (authError.message.includes('already been registered')) {
       throw new Error('Ya existe una cuenta con ese correo.')
@@ -90,7 +95,7 @@ export async function updateRoleAction(id: string, role: AppUserRole): Promise<v
   const claims = await getUserClaims()
   if (claims?.sub === id) throw new Error('No puedes cambiar tu propio rol.')
 
-  const supabase = await createClient()
+  const supabase = await createSupabaseServiceClient()
   const { error } = await supabase.from('users').update({ role }).eq('id', id)
   if (error) throw error
 
@@ -139,4 +144,26 @@ export async function reactivateUserAction(id: string): Promise<void> {
 
   revalidatePath('/admin')
   revalidatePath(`/admin/users/${id}`)
+}
+
+// ── Hard delete ────────────────────────────────────────────────────────────
+
+export async function deleteUserAction(id: string): Promise<void> {
+  await requireRole('admin')
+
+  // Guard: admin cannot delete themselves
+  const claims = await getUserClaims()
+  if (claims?.sub === id) throw new Error('No puedes eliminar tu propia cuenta.')
+
+  const supabase = await createSupabaseServiceClient()
+
+  // Delete public.users row first (FK references auth.users)
+  const { error: dbError } = await supabase.from('users').delete().eq('id', id)
+  if (dbError) throw new Error(`Error al eliminar el usuario: ${dbError.message}`)
+
+  // Delete the auth user (invalidates all sessions and removes auth record)
+  const { error: authError } = await supabase.auth.admin.deleteUser(id)
+  if (authError) throw new Error(`Error al eliminar la cuenta: ${authError.message}`)
+
+  revalidatePath('/admin')
 }

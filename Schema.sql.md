@@ -1,13 +1,13 @@
 # FNH Monolith — Authoritative Database Schema
 
-> **Last updated:** 2026-04-03
-> **Applied migrations:** 0001_initial.sql, 0002_extend_contracts.sql, 0003_seed_document_requirements.sql, 0004_rls.sql, 0005_storage_policies.sql, 0006_update_vehicle_requirements.sql, 0007_servitrans_driver_requirements.sql, 0008_employees_softdelete.sql, 0009_users_softdelete.sql, 0010_drop_contract_templates.sql
+> **Last updated:** 2026-04-09
+> **Applied migrations:** 0001_initial.sql, 0002_extend_contracts.sql, 0003_seed_document_requirements.sql, 0004_rls.sql, 0005_storage_policies.sql, 0006_update_vehicle_requirements.sql, 0007_servitrans_driver_requirements.sql, 0008_employees_softdelete.sql, 0009_users_softdelete.sql, 0010_drop_contract_templates.sql, 0011_contract_cases.sql
 > **Source of truth:** Supabase Dashboard → Table Editor
 > This file must be kept in sync with every new migration.
 
 ---
 
-## Complete Schema (post-migration-0010)
+## Complete Schema (post-migration-0011)
 
 ```sql
 -- ============================================================
@@ -256,3 +256,4 @@ create index idx_users_active
 | `0008_employees_softdelete.sql` | 2026-04-02 | ADD COLUMN `deactivated_at timestamptz` to `employees`; CREATE partial index `idx_employees_active` on active employees (ND-29) |
 | `0009_users_softdelete.sql` | 2026-04-03 | ADD COLUMN `email text` and `deactivated_at timestamptz` to `public.users`; CREATE partial index `idx_users_active`; CREATE POLICY `users_delete_admin` (ND-32) |
 | `0010_drop_contract_templates.sql` | 2026-04-03 | DROP FK `contracts_template_id_fkey`; ALTER `contracts.template_id` to nullable; DROP TABLE `contract_templates` (ND-35) |
+| `0011_contract_cases.sql` | 2026-04-09 | DROP TABLE `contracts`; CREATE `contract_cases` (expediente) + `contract_documents` (each signable piece); ALTER `contract_audit_logs`: replace `contract_id` with `document_id`; RLS for new tables (ND-45) |

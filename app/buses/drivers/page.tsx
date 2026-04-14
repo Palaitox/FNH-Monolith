@@ -1,9 +1,10 @@
 import Link from 'next/link'
 import { listAllDrivers } from '@/app/buses/actions/buses'
+import { getUserRole } from '@/app/(shared)/lib/auth'
 import { UserCheck, UserX } from 'lucide-react'
 
 export default async function DriversPage() {
-  const drivers = await listAllDrivers()
+  const [drivers, role] = await Promise.all([listAllDrivers(), getUserRole()])
   const active = drivers.filter((d) => !d.deactivated_at)
   const inactive = drivers.filter((d) => d.deactivated_at)
 
@@ -12,9 +13,9 @@ export default async function DriversPage() {
       <div className="space-y-4">
         <Link
           href="/buses"
-          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          className="inline-flex rounded-md border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
         >
-          ← Buses
+          ← Volver
         </Link>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="space-y-0.5">
@@ -23,12 +24,14 @@ export default async function DriversPage() {
               {active.length} activos · {inactive.length} inactivos
             </p>
           </div>
-          <Link
-            href="/buses/drivers/new"
-            className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
-          >
-            + Nuevo conductor
-          </Link>
+          {role !== 'viewer' && (
+            <Link
+              href="/buses/drivers/new"
+              className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+            >
+              + Nuevo conductor
+            </Link>
+          )}
         </div>
       </div>
 

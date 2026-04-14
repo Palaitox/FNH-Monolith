@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   updateRoleAction,
   deactivateUserAction,
   reactivateUserAction,
+  deleteUserAction,
 } from '@/app/admin/actions/users'
 import { ROLE_LABELS, ROLE_COLORS } from '@/app/admin/types'
 import type { AppUser, AppUserRole } from '@/app/admin/types'
@@ -27,9 +28,15 @@ export default function UserDetail({ user, currentUserId }: Props) {
   const [editRole, setEditRole] = useState(false)
   const [selectedRole, setSelectedRole] = useState<AppUserRole>(user.role)
   const [confirmDeactivate, setConfirmDeactivate] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   const isActive = user.deactivated_at === null
   const isSelf = currentUserId === user.id
+
+  // Sync selectedRole when server refreshes user data
+  useEffect(() => {
+    setSelectedRole(user.role)
+  }, [user.role])
 
   function handleRoleSave() {
     setError(null)
@@ -37,7 +44,7 @@ export default function UserDetail({ user, currentUserId }: Props) {
       try {
         await updateRoleAction(user.id, selectedRole)
         setEditRole(false)
-        router.refresh()
+        router.push(`/admin/users/${user.id}`)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Error al actualizar el rol.')
       }
@@ -63,6 +70,18 @@ export default function UserDetail({ user, currentUserId }: Props) {
         router.refresh()
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Error al reactivar.')
+      }
+    })
+  }
+
+  function handleDelete() {
+    startTransition(async () => {
+      try {
+        await deleteUserAction(user.id)
+        router.push('/admin')
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Error al eliminar el usuario.')
+        setConfirmDelete(false)
       }
     })
   }
@@ -199,6 +218,36 @@ export default function UserDetail({ user, currentUserId }: Props) {
               {isPending ? 'Reactivando…' : 'Reactivar usuario'}
             </button>
           )}
+
+          <div className="border-t border-destructive/20 pt-4">
+            {confirmDelete ? (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">
+                  Esto elimina la cuenta permanentemente. ¿Continuar?
+                </span>
+                <button
+                  onClick={handleDelete}
+                  disabled={isPending}
+                  className="rounded-md bg-destructive px-3 py-1.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50 transition-opacity"
+                >
+                  {isPending ? 'Eliminando…' : 'Sí, eliminar'}
+                </button>
+                <button
+                  onClick={() => setConfirmDelete(false)}
+                  className="rounded-md border border-border px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
+                >
+                  Cancelar
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setConfirmDelete(true)}
+                className="rounded-md border border-destructive px-3 py-1.5 text-sm font-semibold text-destructive hover:bg-destructive/10 transition-colors"
+              >
+                Eliminar usuario
+              </button>
+            )}
+          </div>
         </div>
       )}
     </main>

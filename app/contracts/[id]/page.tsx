@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/server'
-import { getContract, getContractAuditLogs, getEmployee } from '@/app/(shared)/lib/db'
+import { getDocument, getDocumentAuditLogs, getEmployee } from '@/app/(shared)/lib/db'
+import { getUserRole } from '@/app/(shared)/lib/auth'
 import ContractDetail from './ContractDetail'
 
 interface Props {
@@ -11,14 +12,15 @@ export default async function ContractDetailPage({ params }: Props) {
   const { id } = await params
   const supabase = await createClient()
 
-  const [contract, auditLogs] = await Promise.all([
-    getContract(supabase, id),
-    getContractAuditLogs(supabase, id),
+  const [doc, auditLogs, role] = await Promise.all([
+    getDocument(supabase, id),
+    getDocumentAuditLogs(supabase, id),
+    getUserRole(),
   ])
 
-  if (!contract) notFound()
+  if (!doc) notFound()
 
-  const employee = await getEmployee(supabase, contract.employee_id)
+  const employee = await getEmployee(supabase, doc.contract_cases?.employee_id ?? '')
 
-  return <ContractDetail contract={contract} auditLogs={auditLogs} employee={employee} />
+  return <ContractDetail contract={doc} auditLogs={auditLogs} employee={employee} role={role} />
 }

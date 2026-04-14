@@ -10,7 +10,7 @@ import {
   deleteEmployeeAction,
 } from '@/app/employees/actions/employees'
 import type { Employee, JornadaLaboral } from '@/app/employees/types'
-import type { ContractWithEmployee } from '@/app/contracts/types'
+import type { ContractDocumentFull } from '@/app/contracts/types'
 
 const labelClass = 'text-xs font-medium uppercase tracking-wide text-muted-foreground'
 const fieldClass =
@@ -20,6 +20,7 @@ const JORNADA_LABELS: Record<JornadaLaboral, string> = {
   tiempo_completo: 'Tiempo completo',
   medio_tiempo: 'Medio tiempo',
   prestacion_servicios: 'Prestación de servicios',
+  termino_indefinido: 'Término indefinido',
 }
 
 function formatCOP(value: number | null): string {
@@ -34,7 +35,7 @@ function formatCOP(value: number | null): string {
 
 interface Props {
   employee: Employee
-  contracts: ContractWithEmployee[]
+  contracts: ContractDocumentFull[]
   role: string | null
 }
 
@@ -60,6 +61,7 @@ export default function EmployeeDetail({ employee, contracts, role }: Props) {
 
   const isActive = employee.deactivated_at === null
   const isAdmin = role === 'admin'
+  const isViewer = role === 'viewer'
 
   function handleSave(e: React.FormEvent) {
     e.preventDefault()
@@ -149,7 +151,7 @@ export default function EmployeeDetail({ employee, contracts, role }: Props) {
         </div>
 
         <div className="flex items-center gap-2">
-          {!editMode && isActive && (
+          {!editMode && isActive && !isViewer && (
             <button
               onClick={() => setEditMode(true)}
               className="rounded-md border border-border px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
@@ -198,6 +200,7 @@ export default function EmployeeDetail({ employee, contracts, role }: Props) {
                 <option value="tiempo_completo">Tiempo completo</option>
                 <option value="medio_tiempo">Medio tiempo</option>
                 <option value="prestacion_servicios">Prestación de servicios</option>
+                <option value="termino_indefinido">Término indefinido</option>
               </select>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -280,9 +283,11 @@ export default function EmployeeDetail({ employee, contracts, role }: Props) {
                 {contracts.map((c) => (
                   <tr key={c.id} className="hover:bg-muted/20 transition-colors">
                     <td className="px-4 py-3 font-mono text-muted-foreground hidden sm:table-cell">
-                      {c.contract_number ?? '—'}
+                      {c.contract_cases?.case_number ?? '—'}
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">{c.tipo_contrato ?? '—'}</td>
+                    <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">
+                      {c.document_type === 'INICIAL' ? (c.tipo_contrato ?? '—') : c.document_type}
+                    </td>
                     <td className="px-4 py-3 font-mono text-muted-foreground hidden sm:table-cell">
                       {c.fecha_inicio ?? '—'}
                     </td>
@@ -311,8 +316,8 @@ export default function EmployeeDetail({ employee, contracts, role }: Props) {
         )}
       </div>
 
-      {/* Danger zone */}
-      <div className="rounded-lg border border-destructive/30 p-5 space-y-4">
+      {/* Danger zone — hidden for viewers */}
+      {!isViewer && <div className="rounded-lg border border-destructive/30 p-5 space-y-4">
         <p className={labelClass}>Zona peligrosa</p>
 
         {error && !editMode && (
@@ -392,6 +397,15 @@ export default function EmployeeDetail({ employee, contracts, role }: Props) {
             La eliminación permanente no está disponible: el empleado tiene {contracts.length} contrato{contracts.length !== 1 ? 's' : ''} registrado{contracts.length !== 1 ? 's' : ''}. Desactívalo en su lugar.
           </p>
         )}
+      </div>}
+
+      <div>
+        <Link
+          href="/employees"
+          className="rounded-md border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
+        >
+          ← Volver
+        </Link>
       </div>
     </main>
   )
