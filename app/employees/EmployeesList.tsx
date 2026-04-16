@@ -98,7 +98,7 @@ export default function EmployeesList({ role }: EmployeesListProps) {
 
       {/* Stats */}
       {!loading && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           {[
             { label: 'Activos', value: active.length },
             { label: 'Tiempo completo', value: byJornada('tiempo_completo') },

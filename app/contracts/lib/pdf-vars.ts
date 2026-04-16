@@ -11,6 +11,7 @@ export interface ContractVars {
   trabajador_nombre: string
   trabajador_cargo: string
   trabajador_cedula: string
+  trabajador_ciudad_cedula: string
   trabajador_telefono: string
   trabajador_correo: string
   salario_texto: string
@@ -117,6 +118,7 @@ export function buildContractVars(
     trabajador_nombre: employee.full_name,
     trabajador_cargo: employee.cargo ?? '',
     trabajador_cedula: cedulaFormatted,
+    trabajador_ciudad_cedula: employee.ciudad_cedula ?? '',
     trabajador_telefono: employee.telefono ?? '',
     trabajador_correo: employee.correo ?? '',
     salario_texto: buildSalaryText(salarioBase, auxilioTransporte),

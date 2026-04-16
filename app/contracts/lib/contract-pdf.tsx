@@ -619,7 +619,7 @@ function LaboralInfoTable({ v }: { v: ContractVars }) {
       <TR label="TRABAJADOR:" value={v.trabajador_nombre} />
       <TR label="OFICIO QUE DESEMPEÑARA" value={v.trabajador_cargo} />
       <TR label="SALARIO" value={v.salario_texto} />
-      <TR label="FORMA DE PAGO" value="MENSUAL LOS CINCO PRIMEROS DIAS DE CADA MES" />
+      <TR label="FORMA DE PAGO" value="MENSUAL ENTRE EL DÍA QUINCE (15) Y EL DÍA VEINTE (20) DE CADA MES" />
       <TR label="FECHA DE INICIO:" value={v.fecha_inicio_texto} />
       <TR label="FECHA DE TERMINACION DEL CONTRATO:" value={v.fecha_terminacion_texto} />
       <TR label="LUGAR DONDE SE DESEMPEÑARÁN LAS LABORES:" value={v.lugar_trabajo} />
@@ -650,6 +650,7 @@ function LaboralIntro({ v }: { v: ContractVars }) {
       <B>{v.trabajador_nombre}</B>
       {' identificada/o con cedula de ciudadanía '}
       <B>{`Nº ${v.trabajador_cedula}`}</B>
+      {v.trabajador_ciudad_cedula ? ` expedida en ${v.trabajador_ciudad_cedula},` : ','}
       {' quien en adelante se denominará '}
       <B>{'EL TRABAJADOR'}</B>
       {', se ha celebrado el presente contrato individual de trabajo, el cual se rige por el Código Sustantivo de Trabajo y  por las siguientes cláusulas:'}
@@ -776,7 +777,7 @@ function ContratoPrestacionServicios({ v }: { v: ContractVars }) {
           <TR label="CONTRATISTA:" value={v.trabajador_nombre} centered />
           <TR label="OBJETO DEL CONTRATO" value={v.trabajador_cargo} centered />
           <TR label="VALOR DEL CONTRATO" value={v.salario_texto} centered />
-          <TR label="FORMA DE PAGO" value="MENSUAL (LOS CINCO PRIMEROS DIAS DE CADA MES)" centered />
+          <TR label="FORMA DE PAGO" value="MENSUAL ENTRE EL DÍA QUINCE (15) Y EL DÍA VEINTE (20) DE CADA MES" centered />
           <TR label="FECHA DE INICIO:" value={v.fecha_inicio_texto} centered />
           <TR label="FECHA DE TERMINACION DEL CONTRATO:" value={v.fecha_terminacion_texto} centered />
           <TR label="LUGAR DONDE SE DESEMPEÑARÁN LAS LABORES:" value={v.lugar_trabajo} centered />
@@ -786,7 +787,7 @@ function ContratoPrestacionServicios({ v }: { v: ContractVars }) {
           <B>{'DORA PATRICIA CARMONA SOTO'}</B>
           {' identificada con CC. Nº. 29.158.068 expedida en Ansermanuevo (Valle Del Cauca), en su calidad de Representante legal de la '}
           <B>{'FUNDACION NUEVO HORIZONTE NIT:821.003.251-4'}</B>
-          {' y con domicilio principal en la ciudad de '}{v.lugar_trabajo}{' del Cauca, quien en adelante se denominara EL CONTRATANTE y '}{v.trabajador_nombre}{' identificada con cedula de ciudadanía N° '}{v.trabajador_cedula}{' quien en adelante se denominara EL CONTRATISTA; se ha convenido celebrar el presente contrato. de prestación de servicios, que se regirá por las normas legales pertinentes, en especial por los artículos 2054, 2055, 2056 y 2659 del Código Civil, el artículo 968 del Código de Comercio y por las siguientes'}
+          {' y con domicilio principal en la ciudad de '}{v.lugar_trabajo}{' del Cauca, quien en adelante se denominara EL CONTRATANTE y '}{v.trabajador_nombre}{' identificada con cedula de ciudadanía N° '}{v.trabajador_cedula}{v.trabajador_ciudad_cedula ? ` expedida en ${v.trabajador_ciudad_cedula}` : ''}{' quien en adelante se denominara EL CONTRATISTA; se ha convenido celebrar el presente contrato. de prestación de servicios, que se regirá por las normas legales pertinentes, en especial por los artículos 2054, 2055, 2056 y 2659 del Código Civil, el artículo 968 del Código de Comercio y por las siguientes'}
         </Text>
         <Text style={[S.body, S.bold]}>{'CONSIDERACIONES:'}</Text>
         <Text style={[S.body, S.indent]}>

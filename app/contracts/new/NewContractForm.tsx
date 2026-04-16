@@ -14,12 +14,16 @@ import {
 import type { Employee } from '@/app/(shared)/lib/employee-types'
 import type { AppSettings, ContractCase } from '@/app/contracts/types'
 
-const TIPO_OPTIONS = [
-  { value: 'tiempo_completo',     label: 'Término fijo — Tiempo completo' },
-  { value: 'medio_tiempo',        label: 'Término fijo — Medio tiempo' },
-  { value: 'indefinido',          label: 'Término indefinido' },
+// Initial contracts — these create a new expediente
+const TIPO_INICIAL_OPTIONS = [
+  { value: 'tiempo_completo',      label: 'Término fijo — Tiempo completo' },
+  { value: 'medio_tiempo',         label: 'Término fijo — Medio tiempo' },
   { value: 'prestacion_servicios', label: 'Prestación de servicios' },
-  { value: 'otro_si',             label: 'Otro Sí — Modificatorio' },
+]
+
+// Additive documents — attached to an existing expediente
+const TIPO_ADICIONAL_OPTIONS = [
+  { value: 'otro_si', label: 'Otro Sí — Modificatorio' },
 ]
 
 export default function NewContractPage() {
@@ -55,8 +59,10 @@ export default function NewContractPage() {
   const [error, setError] = useState<string | null>(null)
   const [generating, setGenerating] = useState(false)
 
-  const esOtroSi     = tipoContrato === 'otro_si'
-  const esIndefinido = tipoContrato === 'indefinido'
+  // modoAdicional: arriving with a pre-filled case_id means we're adding to an existing expediente
+  const modoAdicional = !!preCaseId
+  const tipoOptions   = modoAdicional ? TIPO_ADICIONAL_OPTIONS : TIPO_INICIAL_OPTIONS
+  const esOtroSi      = tipoContrato === 'otro_si'
 
   useEffect(() => {
     Promise.all([listEmployees(), nextContractNumber(), getAppSettings()]).then(
@@ -103,7 +109,6 @@ export default function NewContractPage() {
     if (!employeeId || !selectedEmployee) return setError('Selecciona un empleado.')
     if (esOtroSi && !selectedCaseId) return setError('Selecciona el expediente contractual al que aplica este Otro Sí.')
     if (!esOtroSi && !fechaInicio) return setError('Ingresa la fecha de inicio.')
-    if (esIndefinido && !importPdfFile) return setError('Para contratos a término indefinido, debes importar el PDF firmado.')
 
     const fechaEfectiva = esOtroSi ? '2026-03-16' : fechaInicio
 
@@ -116,7 +121,7 @@ export default function NewContractPage() {
           document_type: esOtroSi ? 'OTRO_SI' : 'INICIAL',
           tipo_contrato: tipoContrato,
           fecha_inicio: fechaEfectiva,
-          fecha_terminacion: (esOtroSi || esIndefinido) ? undefined : (fechaTerminacion || undefined),
+          fecha_terminacion: esOtroSi ? undefined : (fechaTerminacion || undefined),
           forma_pago: esOtroSi ? undefined : (formaPago || undefined),
           case_id: esOtroSi ? selectedCaseId : undefined,
         })
@@ -207,7 +212,9 @@ export default function NewContractPage() {
   return (
     <div className="px-4 py-6 sm:px-6 max-w-2xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Nuevo contrato</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          {modoAdicional ? 'Agregar al expediente' : 'Nuevo contrato inicial'}
+        </h1>
         <p className="text-sm text-muted-foreground mt-1">
           N° <span className="font-mono">{displayNumber}</span>
         </p>
@@ -239,7 +246,7 @@ export default function NewContractPage() {
             value={tipoContrato}
             onChange={(e) => setTipoContrato(e.target.value)}
           >
-            {TIPO_OPTIONS.map((o) => (
+            {tipoOptions.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}
               </option>
@@ -274,9 +281,9 @@ export default function NewContractPage() {
           </div>
         )}
 
-        {/* Dates — hidden for Otro Sí; fecha_terminacion hidden for indefinido */}
+        {/* Dates — hidden for Otro Sí */}
         {!esOtroSi && (
-          <div className={`grid grid-cols-1 gap-4 ${esIndefinido ? '' : 'sm:grid-cols-2'}`}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Fecha de inicio</label>
               <input
@@ -286,17 +293,15 @@ export default function NewContractPage() {
                 onChange={(e) => setFechaInicio(e.target.value)}
               />
             </div>
-            {!esIndefinido && (
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Fecha de terminación</label>
-                <input
-                  type="date"
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                  value={fechaTerminacion}
-                  onChange={(e) => setFechaTerminacion(e.target.value)}
-                />
-              </div>
-            )}
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Fecha de terminación</label>
+              <input
+                type="date"
+                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                value={fechaTerminacion}
+                onChange={(e) => setFechaTerminacion(e.target.value)}
+              />
+            </div>
           </div>
         )}
 
@@ -314,13 +319,11 @@ export default function NewContractPage() {
           </div>
         )}
 
-        {/* PDF import — required for indefinido, optional for all other types */}
+        {/* PDF import — optional for all initial contract types */}
         {!esOtroSi && (
           <div className="space-y-1.5 rounded-md border border-dashed border-border p-4">
             <div className="flex items-center justify-between">
-              <label className="text-sm font-medium">
-                {esIndefinido ? 'PDF firmado (requerido)' : 'Importar PDF firmado (opcional)'}
-              </label>
+              <label className="text-sm font-medium">Importar PDF firmado (opcional)</label>
               {importPdfFile && (
                 <button
                   type="button"
@@ -342,9 +345,7 @@ export default function NewContractPage() {
             ) : (
               <>
                 <p className="text-xs text-muted-foreground">
-                  {esIndefinido
-                    ? 'Sube el PDF físico ya firmado. No se generará un PDF desde la plataforma.'
-                    : 'Si ya tienes el contrato firmado, súbelo aquí y quedará registrado directamente como firmado.'}
+                  Si ya tienes el contrato firmado, súbelo aquí y quedará registrado directamente como firmado.
                 </p>
                 <input
                   ref={fileInputRef}

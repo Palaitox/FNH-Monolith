@@ -50,6 +50,7 @@ export default function EmployeeDetail({ employee, contracts, role }: Props) {
   // Edit form state — initialized from employee prop
   const [fullName, setFullName] = useState(employee.full_name)
   const [cedula, setCedula] = useState(employee.cedula)
+  const [ciudadCedula, setCiudadCedula] = useState(employee.ciudad_cedula ?? '')
   const [cargo, setCargo] = useState(employee.cargo ?? '')
   const [telefono, setTelefono] = useState(employee.telefono ?? '')
   const [correo, setCorreo] = useState(employee.correo ?? '')
@@ -74,6 +75,7 @@ export default function EmployeeDetail({ employee, contracts, role }: Props) {
         await updateEmployeeAction(employee.id, {
           full_name: fullName.trim().toUpperCase(),
           cedula: cedula.trim(),
+          ciudad_cedula: ciudadCedula.trim() || null,
           cargo: cargo.trim() || null,
           telefono: telefono.trim() || null,
           correo: correo.trim().toLowerCase() || null,
@@ -172,9 +174,15 @@ export default function EmployeeDetail({ employee, contracts, role }: Props) {
               <label className={labelClass}>Nombre completo *</label>
               <input className={fieldClass} value={fullName} onChange={(e) => setFullName(e.target.value)} />
             </div>
-            <div className="space-y-1.5">
-              <label className={labelClass}>Cédula *</label>
-              <input className={`${fieldClass} font-mono`} value={cedula} onChange={(e) => setCedula(e.target.value.replace(/\D/g, ''))} inputMode="numeric" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className={labelClass}>Cédula *</label>
+                <input className={`${fieldClass} font-mono`} value={cedula} onChange={(e) => setCedula(e.target.value.replace(/\D/g, ''))} inputMode="numeric" />
+              </div>
+              <div className="space-y-1.5">
+                <label className={labelClass}>Ciudad expedición cédula</label>
+                <input className={fieldClass} value={ciudadCedula} onChange={(e) => setCiudadCedula(e.target.value)} placeholder="Ej. Buga (Valle del Cauca)" />
+              </div>
             </div>
             <div className="space-y-1.5">
               <label className={labelClass}>Cargo</label>
@@ -234,6 +242,7 @@ export default function EmployeeDetail({ employee, contracts, role }: Props) {
         /* Read-only view */
         <div className="rounded-lg border border-border bg-card divide-y divide-border">
           {[
+            { label: 'Ciudad expedición CC', value: employee.ciudad_cedula ?? '—' },
             { label: 'Cargo', value: employee.cargo ?? '—' },
             { label: 'Jornada', value: JORNADA_LABELS[employee.jornada_laboral], mono: true },
             { label: 'Salario base', value: formatCOP(employee.salario_base), mono: true },
