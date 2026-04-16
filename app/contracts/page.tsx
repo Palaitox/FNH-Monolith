@@ -98,7 +98,7 @@ export default async function ContractsPage() {
             href="/contracts/new"
             className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors self-start"
           >
-            + Nuevo contrato
+            + Nuevo contrato inicial
           </Link>
         )}
       </div>

@@ -19,6 +19,7 @@ export interface Employee {
   id: string
   full_name: string
   cedula: string
+  ciudad_cedula: string | null
   cargo: string | null
   telefono: string | null
   correo: string | null
@@ -34,6 +35,7 @@ export interface Employee {
 export interface ExcelEmployee {
   full_name: string
   cedula: string
+  ciudad_cedula?: string | null
   cargo: string
   telefono: string
   correo: string

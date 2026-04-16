@@ -40,6 +40,7 @@ create table employees (
   id                 uuid        primary key default gen_random_uuid(),
   full_name          text        not null,
   cedula             text        not null unique,
+  ciudad_cedula      text,                     -- city where the cédula was issued (migration 0015)
   -- Operational fields added in migration 0002 (position dropped)
   cargo              text,
   telefono           text,

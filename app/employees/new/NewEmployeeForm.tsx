@@ -17,6 +17,7 @@ export default function NewEmployeePage() {
 
   const [fullName, setFullName] = useState('')
   const [cedula, setCedula] = useState('')
+  const [ciudadCedula, setCiudadCedula] = useState('')
   const [cargo, setCargo] = useState('')
   const [telefono, setTelefono] = useState('')
   const [correo, setCorreo] = useState('')
@@ -36,6 +37,7 @@ export default function NewEmployeePage() {
         const emp = await createEmployeeAction({
           full_name: fullName.trim().toUpperCase(),
           cedula: cedula.trim(),
+          ciudad_cedula: ciudadCedula.trim() || null,
           cargo: cargo.trim() || null,
           telefono: telefono.trim() || null,
           correo: correo.trim().toLowerCase() || null,
@@ -79,15 +81,26 @@ export default function NewEmployeePage() {
             />
           </div>
 
-          <div className="space-y-1.5">
-            <label className={labelClass}>Cédula *</label>
-            <input
-              className={`${fieldClass} font-mono`}
-              value={cedula}
-              onChange={(e) => setCedula(e.target.value.replace(/\D/g, ''))}
-              placeholder="12345678"
-              inputMode="numeric"
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className={labelClass}>Cédula *</label>
+              <input
+                className={`${fieldClass} font-mono`}
+                value={cedula}
+                onChange={(e) => setCedula(e.target.value.replace(/\D/g, ''))}
+                placeholder="12345678"
+                inputMode="numeric"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className={labelClass}>Ciudad expedición cédula</label>
+              <input
+                className={fieldClass}
+                value={ciudadCedula}
+                onChange={(e) => setCiudadCedula(e.target.value)}
+                placeholder="Ej. Buga (Valle del Cauca)"
+              />
+            </div>
           </div>
 
           <div className="space-y-1.5">

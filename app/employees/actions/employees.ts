@@ -50,6 +50,7 @@ export async function createEmployeeAction(
     .insert({
       full_name: input.full_name,
       cedula: String(input.cedula),
+      ciudad_cedula: input.ciudad_cedula ?? null,
       cargo: input.cargo ?? null,
       telefono: input.telefono ?? null,
       correo: input.correo ?? null,
@@ -83,6 +84,7 @@ export async function updateEmployeeAction(
     .update({
       full_name: input.full_name,
       cedula: String(input.cedula),
+      ciudad_cedula: input.ciudad_cedula ?? null,
       cargo: input.cargo ?? null,
       telefono: input.telefono ?? null,
       correo: input.correo ?? null,
@@ -175,7 +177,7 @@ export async function confirmEmployeeImportAction(
 
   const stats = await bulkUpsertEmployees(
     supabase,
-    employees.map((e) => ({ ...e, source: 'excel' as const })),
+    employees.map((e) => ({ ...e, ciudad_cedula: e.ciudad_cedula ?? null, source: 'excel' as const })),
   )
 
   revalidatePath('/employees')

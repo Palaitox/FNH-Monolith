@@ -161,6 +161,7 @@ export async function bulkUpsertEmployees(
   const payload = employees.map((emp) => ({
     full_name: emp.full_name,
     cedula: String(emp.cedula),
+    ciudad_cedula: emp.ciudad_cedula ?? null,
     cargo: emp.cargo ?? null,
     telefono: emp.telefono ?? null,
     correo: emp.correo ?? null,
@@ -426,7 +427,7 @@ export async function logDocumentAction(
 
 const SETTINGS_DEFAULTS: AppSettings = {
   lugarTrabajo: 'CENTRO VIDA/DIA MUNICIPAL',
-  formaPago: 'MENSUAL LOS CINCO PRIMEROS DIAS DE CADA MES',
+  formaPago: 'MENSUAL ENTRE EL DÍA QUINCE (15) Y EL DÍA VEINTE (20) DE CADA MES',
   empleadorNombre: 'FUNDACION NUEVO HORIZONTE',
   empleadorNit: '821.003.251-4',
   empleadorRepresentante: 'REPRESENTANTE LEGAL',

@@ -211,7 +211,7 @@ function CaseCard({ group, role }: { group: CaseGroup; role: string | null }) {
               {group.docs.filter((d) => d.estado === 'generated').length} pendiente{group.docs.filter((d) => d.estado === 'generated').length !== 1 ? 's' : ''}
             </span>
           )}
-          {role !== 'viewer' && group.employeeId && !isExpired && (
+          {role !== 'viewer' && group.employeeId && !isExpired && group.docs.some((d) => d.document_type === 'INICIAL') && (
             <Link
               href={`/contracts/new?employee_id=${group.employeeId}&case_id=${group.caseId}`}
               className="text-xs text-muted-foreground hover:text-foreground border border-border rounded px-2 py-1 hover:bg-muted/30 transition-colors"
