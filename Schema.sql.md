@@ -1,7 +1,7 @@
 # FNH Monolith — Authoritative Database Schema
 
-> **Last updated:** 2026-04-09
-> **Applied migrations:** 0001_initial.sql, 0002_extend_contracts.sql, 0003_seed_document_requirements.sql, 0004_rls.sql, 0005_storage_policies.sql, 0006_update_vehicle_requirements.sql, 0007_servitrans_driver_requirements.sql, 0008_employees_softdelete.sql, 0009_users_softdelete.sql, 0010_drop_contract_templates.sql, 0011_contract_cases.sql
+> **Last updated:** 2026-04-16
+> **Applied migrations:** 0001_initial.sql, 0002_extend_contracts.sql, 0003_seed_document_requirements.sql, 0004_rls.sql, 0005_storage_policies.sql, 0006_update_vehicle_requirements.sql, 0007_servitrans_driver_requirements.sql, 0008_employees_softdelete.sql, 0009_users_softdelete.sql, 0010_drop_contract_templates.sql, 0011_contract_cases.sql, 0015_employee_ciudad_cedula.sql, 0016_employee_leaves.sql
 > **Source of truth:** Supabase Dashboard → Table Editor
 > This file must be kept in sync with every new migration.
 
@@ -239,6 +239,26 @@ create index idx_employees_active
 create index idx_users_active
   on users (name)
   where deactivated_at is null;
+
+-- ============================================================
+-- CONTRACTS MODULE — EMPLOYEE LEAVES (migration 0016)
+-- ============================================================
+
+-- Tracks maternity / disability / other protected leave periods.
+-- A leave is "active" when start_date <= today AND (actual_end_date IS NULL OR actual_end_date > today).
+-- Employees on active leave are shown as 'en_licencia' in contract vigency — the employment
+-- relationship is legally protected regardless of contract dates.
+create table employee_leaves (
+  id                uuid        primary key default gen_random_uuid(),
+  employee_id       uuid        not null references employees(id) on delete cascade,
+  leave_type        text        not null check (leave_type in ('maternidad','paternidad','incapacidad','luto','otro')),
+  start_date        date        not null,
+  expected_end_date date,       -- planned return date (may change)
+  actual_end_date   date,       -- set when leave actually ends; NULL = still on leave
+  notes             text,
+  created_at        timestamptz not null default now()
+);
+-- RLS: SELECT open to all authenticated; INSERT/UPDATE/DELETE restricted to admin + coordinator
 ```
 
 ---
@@ -258,3 +278,5 @@ create index idx_users_active
 | `0009_users_softdelete.sql` | 2026-04-03 | ADD COLUMN `email text` and `deactivated_at timestamptz` to `public.users`; CREATE partial index `idx_users_active`; CREATE POLICY `users_delete_admin` (ND-32) |
 | `0010_drop_contract_templates.sql` | 2026-04-03 | DROP FK `contracts_template_id_fkey`; ALTER `contracts.template_id` to nullable; DROP TABLE `contract_templates` (ND-35) |
 | `0011_contract_cases.sql` | 2026-04-09 | DROP TABLE `contracts`; CREATE `contract_cases` (expediente) + `contract_documents` (each signable piece); ALTER `contract_audit_logs`: replace `contract_id` with `document_id`; RLS for new tables (ND-45) |
+| `0015_employee_ciudad_cedula.sql` | 2026-04-16 | ADD COLUMN `ciudad_cedula text` to `employees`; used in PDF contract generation to print "expedida en [city]" |
+| `0016_employee_leaves.sql` | 2026-04-16 | CREATE `employee_leaves` table; tracks maternity/disability/other protected leave; drives `en_licencia` vigency override in contracts module |
