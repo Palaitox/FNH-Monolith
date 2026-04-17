@@ -72,7 +72,9 @@ function groupByCases(
     const resolvedEndDate = group.endDate ?? originalInicial?.fecha_terminacion ?? null
     group.endDate = resolvedEndDate
 
-    let { status, daysLeft } = computeVigency(inicial?.fecha_inicio, resolvedEndDate)
+    const vigency = computeVigency(inicial?.fecha_inicio, resolvedEndDate)
+    let status = vigency.status
+    const daysLeft = vigency.daysLeft
     // Override vencido → en_licencia when employee has active leave
     if (status === 'vencido' && group.employeeId && activeLeavesMap.has(group.employeeId)) {
       status = 'en_licencia'
