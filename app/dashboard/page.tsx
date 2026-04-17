@@ -3,7 +3,7 @@ import { getDashboardStats, getEmployeeContractStatusAction } from '@/app/contra
 import { getFleetComplianceAction } from '@/app/buses/actions/buses'
 import { getUserRole } from '@/app/(shared)/lib/auth'
 import { StatusBadge } from '@/app/buses/components/StatusBadge'
-import { FileText, Users, CheckSquare, Clock, Bus, AlertTriangle, UserCheck } from 'lucide-react'
+import { FileText, Users, CheckSquare, Clock, Bus, AlertTriangle, UserCheck, BedDouble } from 'lucide-react'
 import type { DocumentStatus } from '@/app/buses/types'
 
 const STATUS_ORDER: DocumentStatus[] = ['Crítico', 'Alerta', 'Seguimiento', 'Vigente']
@@ -95,7 +95,7 @@ export default async function DashboardPage() {
         </div>
 
         {/* Summary cards */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className={`rounded-lg border p-4 ${contractStatus.sinContrato.length > 0 ? 'border-rose-500/30 bg-rose-900/10' : 'border-border bg-card'}`}>
             <div className="flex items-center gap-2 mb-2">
               {contractStatus.sinContrato.length > 0
@@ -123,6 +123,15 @@ export default async function DashboardPage() {
             </div>
             <p className="text-2xl font-mono font-semibold text-emerald-400">
               {contractStatus.vigentes.length}
+            </p>
+          </div>
+          <div className={`rounded-lg border p-4 ${contractStatus.enLicencia.length > 0 ? 'border-violet-500/30 bg-violet-900/10' : 'border-border bg-card'}`}>
+            <div className="flex items-center gap-2 mb-2">
+              <BedDouble className={`h-3.5 w-3.5 ${contractStatus.enLicencia.length > 0 ? 'text-violet-400' : 'text-muted-foreground'}`} />
+              <span className="text-xs text-muted-foreground">En licencia</span>
+            </div>
+            <p className={`text-2xl font-mono font-semibold ${contractStatus.enLicencia.length > 0 ? 'text-violet-400' : ''}`}>
+              {contractStatus.enLicencia.length}
             </p>
           </div>
         </div>
@@ -169,6 +178,29 @@ export default async function DashboardPage() {
                   <span className="text-xs text-muted-foreground">
                     {emp.caseNumber ?? '—'}
                   </span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* En licencia */}
+        {contractStatus.enLicencia.length > 0 && (
+          <div className="rounded-lg border border-violet-500/20 overflow-hidden">
+            <div className="px-4 py-2.5 bg-violet-900/10 border-b border-violet-500/20">
+              <p className="text-xs font-medium text-violet-400 uppercase tracking-wide">
+                En licencia ({contractStatus.enLicencia.length})
+              </p>
+            </div>
+            <div className="divide-y divide-border">
+              {contractStatus.enLicencia.map((emp) => (
+                <Link
+                  key={emp.id}
+                  href={`/employees/${emp.id}`}
+                  className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/20 transition-colors"
+                >
+                  <span className="text-sm font-medium">{emp.full_name}</span>
+                  <span className="text-xs text-muted-foreground hover:text-primary transition-colors">Ver →</span>
                 </Link>
               ))}
             </div>

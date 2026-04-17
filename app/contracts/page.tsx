@@ -1,8 +1,11 @@
 import Link from 'next/link'
 import { listContracts } from '@/app/contracts/actions/contracts'
 import { getUserRole } from '@/app/(shared)/lib/auth'
+import { createClient } from '@/lib/server'
+import { getActiveLeavesMap } from '@/app/(shared)/lib/db'
 import ContractsList, { type CaseGroup, type VigencyStatus } from './ContractsList'
 import type { ContractDocumentFull } from '@/app/contracts/types'
+import type { EmployeeLeave } from '@/app/(shared)/lib/employee-types'
 
 function computeVigency(
   fechaInicio: string | null | undefined,
@@ -23,7 +26,10 @@ function computeVigency(
   return { status: 'vigente', daysLeft }
 }
 
-function groupByCases(contracts: ContractDocumentFull[]): CaseGroup[] {
+function groupByCases(
+  contracts: ContractDocumentFull[],
+  activeLeavesMap: Map<string, EmployeeLeave>,
+): CaseGroup[] {
   const map = new Map<string, CaseGroup>()
 
   for (const doc of contracts) {
@@ -66,13 +72,17 @@ function groupByCases(contracts: ContractDocumentFull[]): CaseGroup[] {
     const resolvedEndDate = group.endDate ?? originalInicial?.fecha_terminacion ?? null
     group.endDate = resolvedEndDate
 
-    const { status, daysLeft } = computeVigency(inicial?.fecha_inicio, resolvedEndDate)
+    let { status, daysLeft } = computeVigency(inicial?.fecha_inicio, resolvedEndDate)
+    // Override vencido → en_licencia when employee has active leave
+    if (status === 'vencido' && group.employeeId && activeLeavesMap.has(group.employeeId)) {
+      status = 'en_licencia'
+    }
     group.vigency = status
     group.daysLeft = daysLeft
   }
 
   const order: Record<VigencyStatus, number> = {
-    por_vencer: 0, vigente: 1, indefinido: 2, no_iniciado: 3, vencido: 4,
+    por_vencer: 0, vigente: 1, en_licencia: 2, indefinido: 3, no_iniciado: 4, vencido: 5,
   }
   return Array.from(map.values()).sort((a, b) => {
     const od = order[a.vigency] - order[b.vigency]
@@ -81,8 +91,13 @@ function groupByCases(contracts: ContractDocumentFull[]): CaseGroup[] {
 }
 
 export default async function ContractsPage() {
-  const [contracts, role] = await Promise.all([listContracts(), getUserRole()])
-  const cases = groupByCases(contracts)
+  const supabase = await createClient()
+  const [contracts, role, activeLeavesMap] = await Promise.all([
+    listContracts(),
+    getUserRole(),
+    getActiveLeavesMap(supabase),
+  ])
+  const cases = groupByCases(contracts, activeLeavesMap)
 
   return (
     <div className="px-4 py-6 sm:px-6 max-w-5xl mx-auto space-y-6">

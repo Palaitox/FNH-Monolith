@@ -7,4 +7,6 @@ export type {
   ExcelEmployee,
   ExcelImportResult,
   ImportDiff,
+  EmployeeLeave,
+  LeaveType,
 } from '@/app/(shared)/lib/employee-types'

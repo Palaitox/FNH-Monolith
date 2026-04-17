@@ -9,8 +9,10 @@ import {
   reactivateEmployeeAction,
   deleteEmployeeAction,
 } from '@/app/employees/actions/employees'
-import type { Employee, JornadaLaboral } from '@/app/employees/types'
+import type { Employee, JornadaLaboral, EmployeeLeave, LeaveType } from '@/app/employees/types'
 import type { ContractDocumentFull } from '@/app/contracts/types'
+import { createLeaveAction, closeLeaveAction } from '@/app/employees/actions/leaves'
+import { LEAVE_TYPE_LABELS } from '@/app/(shared)/lib/employee-types'
 
 const labelClass = 'text-xs font-medium uppercase tracking-wide text-muted-foreground'
 const fieldClass =
@@ -36,10 +38,11 @@ function formatCOP(value: number | null): string {
 interface Props {
   employee: Employee
   contracts: ContractDocumentFull[]
+  leaves: EmployeeLeave[]
   role: string | null
 }
 
-export default function EmployeeDetail({ employee, contracts, role }: Props) {
+export default function EmployeeDetail({ employee, contracts, leaves, role }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -59,6 +62,20 @@ export default function EmployeeDetail({ employee, contracts, role }: Props) {
     employee.auxilio_transporte?.toString() ?? '0',
   )
   const [jornada, setJornada] = useState<JornadaLaboral>(employee.jornada_laboral)
+
+  // Leave management state
+  const today = new Date().toISOString().slice(0, 10)
+  const [showLeaveForm, setShowLeaveForm] = useState(false)
+  const [leaveType, setLeaveType] = useState<LeaveType>('maternidad')
+  const [leaveStart, setLeaveStart] = useState(today)
+  const [leaveExpected, setLeaveExpected] = useState('')
+  const [leaveNotes, setLeaveNotes] = useState('')
+  const [leaveError, setLeaveError] = useState<string | null>(null)
+  const [currentLeaves, setCurrentLeaves] = useState<EmployeeLeave[]>(leaves)
+
+  const activeLeave = currentLeaves.find(
+    (l) => !l.actual_end_date && l.start_date <= today
+  ) ?? null
 
   const isActive = employee.deactivated_at === null
   const isAdmin = role === 'admin'
@@ -262,6 +279,168 @@ export default function EmployeeDetail({ employee, contracts, role }: Props) {
           ))}
         </div>
       )}
+
+      {/* Leaves */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <p className={labelClass}>Licencias y ausencias</p>
+          {!isViewer && !showLeaveForm && !activeLeave && (
+            <button
+              onClick={() => setShowLeaveForm(true)}
+              className="text-xs text-muted-foreground hover:text-foreground border border-border rounded px-2 py-1 hover:bg-muted/30 transition-colors"
+            >
+              + Registrar licencia
+            </button>
+          )}
+        </div>
+
+        {activeLeave && (
+          <div className="rounded-lg border border-violet-500/30 bg-violet-500/5 p-4 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-violet-400 inline-block" />
+                <span className="text-sm font-medium text-violet-300">
+                  {LEAVE_TYPE_LABELS[activeLeave.leave_type]}
+                </span>
+              </div>
+              {!isViewer && (
+                <button
+                  onClick={async () => {
+                    try {
+                      await closeLeaveAction(activeLeave.id, employee.id, today)
+                      setCurrentLeaves((prev) =>
+                        prev.map((l) => l.id === activeLeave.id ? { ...l, actual_end_date: today } : l)
+                      )
+                    } catch (e) {
+                      setError(e instanceof Error ? e.message : 'Error al cerrar la licencia.')
+                    }
+                  }}
+                  disabled={isPending}
+                  className="text-xs text-muted-foreground hover:text-foreground border border-border rounded px-2 py-1 hover:bg-muted/30 transition-colors"
+                >
+                  Cerrar licencia
+                </button>
+              )}
+            </div>
+            <div className="text-xs text-muted-foreground font-mono space-y-0.5">
+              <p>Inicio: {activeLeave.start_date}</p>
+              {activeLeave.expected_end_date && <p>Retorno esperado: {activeLeave.expected_end_date}</p>}
+              {activeLeave.notes && <p className="italic">{activeLeave.notes}</p>}
+            </div>
+            {!isViewer && !showLeaveForm && (
+              <button
+                onClick={() => setShowLeaveForm(true)}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors mt-1"
+              >
+                + Registrar otra licencia
+              </button>
+            )}
+          </div>
+        )}
+
+        {showLeaveForm && (
+          <div className="rounded-lg border border-border bg-card p-4 space-y-4">
+            <p className={labelClass}>Nueva licencia</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className={labelClass}>Tipo</label>
+                <select
+                  className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm"
+                  value={leaveType}
+                  onChange={(e) => setLeaveType(e.target.value as LeaveType)}
+                >
+                  {(Object.entries(LEAVE_TYPE_LABELS) as [LeaveType, string][]).map(([v, l]) => (
+                    <option key={v} value={v}>{l}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label className={labelClass}>Fecha de inicio</label>
+                <input
+                  type="date"
+                  className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm"
+                  value={leaveStart}
+                  onChange={(e) => setLeaveStart(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className={labelClass}>Retorno esperado (opcional)</label>
+                <input
+                  type="date"
+                  className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm"
+                  value={leaveExpected}
+                  onChange={(e) => setLeaveExpected(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className={labelClass}>Notas (opcional)</label>
+                <input
+                  type="text"
+                  className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm"
+                  value={leaveNotes}
+                  onChange={(e) => setLeaveNotes(e.target.value)}
+                  placeholder="Ej. Protección ampliada post-maternidad"
+                />
+              </div>
+            </div>
+            {leaveError && (
+              <p className="text-sm text-destructive">{leaveError}</p>
+            )}
+            <div className="flex gap-2">
+              <button
+                onClick={async () => {
+                  setLeaveError(null)
+                  if (!leaveStart) { setLeaveError('La fecha de inicio es obligatoria.'); return }
+                  try {
+                    const created = await createLeaveAction({
+                      employee_id:       employee.id,
+                      leave_type:        leaveType,
+                      start_date:        leaveStart,
+                      expected_end_date: leaveExpected || null,
+                      notes:             leaveNotes.trim() || null,
+                    })
+                    setCurrentLeaves((prev) => [created, ...prev])
+                    setShowLeaveForm(false)
+                    setLeaveExpected('')
+                    setLeaveNotes('')
+                  } catch (e) {
+                    setLeaveError(e instanceof Error ? e.message : 'Error al registrar la licencia.')
+                  }
+                }}
+                disabled={isPending}
+                className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-opacity"
+              >
+                Guardar licencia
+              </button>
+              <button
+                onClick={() => { setShowLeaveForm(false); setLeaveError(null) }}
+                className="rounded-md border border-border px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
+
+        {currentLeaves.filter((l) => l.actual_end_date).length > 0 && (
+          <details className="text-xs text-muted-foreground">
+            <summary className="cursor-pointer hover:text-foreground transition-colors">
+              Ver historial ({currentLeaves.filter((l) => l.actual_end_date).length})
+            </summary>
+            <div className="mt-2 space-y-1 pl-2 border-l border-border">
+              {currentLeaves.filter((l) => l.actual_end_date).map((l) => (
+                <p key={l.id} className="font-mono">
+                  {LEAVE_TYPE_LABELS[l.leave_type]} · {l.start_date} → {l.actual_end_date}
+                </p>
+              ))}
+            </div>
+          </details>
+        )}
+
+        {!activeLeave && currentLeaves.length === 0 && (
+          <p className="text-sm text-muted-foreground">Sin licencias registradas.</p>
+        )}
+      </div>
 
       {/* Contracts */}
       <div className="space-y-3">

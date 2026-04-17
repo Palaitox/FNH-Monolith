@@ -6,7 +6,7 @@ import { FileText, CheckSquare, Clock, GitBranch, CalendarClock } from 'lucide-r
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
-export type VigencyStatus = 'vigente' | 'por_vencer' | 'vencido' | 'no_iniciado' | 'indefinido'
+export type VigencyStatus = 'vigente' | 'por_vencer' | 'vencido' | 'no_iniciado' | 'indefinido' | 'en_licencia'
 
 export interface CaseGroup {
   caseId: string
@@ -48,6 +48,7 @@ const VIGENCY_BORDER: Record<VigencyStatus, string> = {
   vencido:     'border-l-2 border-l-border',
   indefinido:  'border-l-2 border-l-sky-500/50',
   no_iniciado: 'border-l-2 border-l-border',
+  en_licencia: 'border-l-2 border-l-violet-500/60',
 }
 
 // ── Sub-components ─────────────────────────────────────────────────────────
@@ -76,6 +77,12 @@ function VigencyBadge({ status, daysLeft }: { status: VigencyStatus; daysLeft: n
       Vencido
     </span>
   )
+  if (status === 'en_licencia') return (
+    <span className="hidden sm:inline-flex items-center gap-1 font-mono text-xs text-violet-400 bg-violet-500/10 border border-violet-500/20 rounded-full px-2 py-0.5">
+      <span className="h-1.5 w-1.5 rounded-full bg-violet-400 inline-block" />
+      En licencia
+    </span>
+  )
   return null
 }
 
@@ -102,7 +109,7 @@ export default function ContractsList({ cases, totalDocs, role }: ContractsListP
     })
   }, [cases, search, vigencyFilter, pendingOnly])
 
-  const vigentes    = cases.filter((c) => c.vigency === 'vigente' || c.vigency === 'indefinido' || c.vigency === 'por_vencer').length
+  const vigentes    = cases.filter((c) => c.vigency === 'vigente' || c.vigency === 'indefinido' || c.vigency === 'por_vencer' || c.vigency === 'en_licencia').length
   const porVencer   = cases.filter((c) => c.vigency === 'por_vencer').length
   const pendientes  = cases.filter((c) => c.docs.some((d) => d.estado === 'generated')).length
 
@@ -141,6 +148,7 @@ export default function ContractsList({ cases, totalDocs, role }: ContractsListP
           <option value="vigente">Vigentes</option>
           <option value="por_vencer">Por vencer</option>
           <option value="indefinido">Indefinidos</option>
+          <option value="en_licencia">En licencia</option>
           <option value="vencido">Vencidos</option>
         </select>
         <button
@@ -192,7 +200,7 @@ export default function ContractsList({ cases, totalDocs, role }: ContractsListP
 
 function CaseCard({ group, role }: { group: CaseGroup; role: string | null }) {
   const anyPending = group.docs.some((d) => d.estado === 'generated')
-  const isExpired  = group.vigency === 'vencido'
+  const isExpired  = group.vigency === 'vencido' // en_licencia is NOT treated as expired
 
   return (
     <div className={`rounded-lg border border-border bg-card overflow-hidden ${VIGENCY_BORDER[group.vigency]}`}>

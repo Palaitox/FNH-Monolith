@@ -15,6 +15,7 @@ import {
   attachSignedPdf,
   getStats,
   getSettings,
+  getActiveLeavesMap,
 } from '@/app/(shared)/lib/db'
 import type {
   ContractCase,
@@ -78,13 +79,15 @@ export interface EmployeeContractSummary {
   sinContrato: EmployeeContractStatus[]
   pendienteFirma: EmployeeContractStatus[]
   vigentes: EmployeeContractStatus[]
+  enLicencia: EmployeeContractStatus[]
 }
 
 export async function getEmployeeContractStatusAction(): Promise<EmployeeContractSummary> {
   const supabase = await createClient()
-  const [employees, documents] = await Promise.all([
+  const [employees, documents, activeLeavesMap] = await Promise.all([
     getEmployees(supabase),
     getDocuments(supabase),
+    getActiveLeavesMap(supabase),
   ])
 
   const today = new Date()
@@ -99,7 +102,7 @@ export async function getEmployeeContractStatusAction(): Promise<EmployeeContrac
     byEmployee.get(empId)!.push(doc)
   }
 
-  const result: EmployeeContractSummary = { sinContrato: [], pendienteFirma: [], vigentes: [] }
+  const result: EmployeeContractSummary = { sinContrato: [], pendienteFirma: [], vigentes: [], enLicencia: [] }
 
   for (const emp of employees) {
     const docs = byEmployee.get(emp.id) ?? []
@@ -152,13 +155,17 @@ export async function getEmployeeContractStatusAction(): Promise<EmployeeContrac
       }
     }
 
-    const hasPending = docs.some((d) => d.estado === 'generated')
+    const hasPending  = docs.some((d) => d.estado === 'generated')
+    const onLeave     = activeLeavesMap.has(emp.id)
 
     if (hasActiveContract) {
       result.vigentes.push({ id: emp.id, full_name: emp.full_name, daysLeft: bestDaysLeft, caseNumber: bestCaseNumber })
       if (hasPending) {
         result.pendienteFirma.push({ id: emp.id, full_name: emp.full_name, daysLeft: bestDaysLeft, caseNumber: bestCaseNumber })
       }
+    } else if (onLeave) {
+      // Employee on active leave: employment is protected even if contract appears expired
+      result.enLicencia.push({ id: emp.id, full_name: emp.full_name, daysLeft: null, caseNumber: bestCaseNumber })
     } else {
       result.sinContrato.push({ id: emp.id, full_name: emp.full_name, daysLeft: null, caseNumber: null })
       if (hasPending) {
@@ -173,6 +180,7 @@ export async function getEmployeeContractStatusAction(): Promise<EmployeeContrac
   sort(result.sinContrato)
   sort(result.pendienteFirma)
   sort(result.vigentes)
+  sort(result.enLicencia)
 
   return result
 }

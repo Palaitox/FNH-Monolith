@@ -52,6 +52,29 @@ export interface ExcelImportResult {
   totalRows: number
 }
 
+// ── Employee leaves ────────────────────────────────────────────────────────
+
+export type LeaveType = 'maternidad' | 'paternidad' | 'incapacidad' | 'luto' | 'otro'
+
+export const LEAVE_TYPE_LABELS: Record<LeaveType, string> = {
+  maternidad:  'Licencia de maternidad',
+  paternidad:  'Licencia de paternidad',
+  incapacidad: 'Incapacidad laboral',
+  luto:        'Licencia de luto',
+  otro:        'Otra licencia',
+}
+
+export interface EmployeeLeave {
+  id: string
+  employee_id: string
+  leave_type: LeaveType
+  start_date: string
+  expected_end_date: string | null
+  actual_end_date: string | null
+  notes: string | null
+  created_at: string
+}
+
 export interface ImportDiff {
   new: ExcelEmployee[]
   updated: { old: Employee; new: ExcelEmployee }[]
