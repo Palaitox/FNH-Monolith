@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { FileText, CheckSquare, Clock, GitBranch, CalendarClock } from 'lucide-react'
+import { FileText, CheckSquare, Clock, GitBranch, CalendarClock, ChevronDown, ChevronRight } from 'lucide-react'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -49,6 +49,26 @@ const VIGENCY_BORDER: Record<VigencyStatus, string> = {
   indefinido:  'border-l-2 border-l-sky-500/50',
   no_iniciado: 'border-l-2 border-l-border',
   en_licencia: 'border-l-2 border-l-violet-500/60',
+}
+
+// Vigency statuses that start expanded — the rest start collapsed
+const EXPANDED_STATUSES = new Set<VigencyStatus>(['vigente', 'por_vencer', 'indefinido', 'en_licencia'])
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+
+function fmtDate(iso: string | null | undefined): string {
+  if (!iso) return ''
+  // T12:00:00Z avoids off-by-one when the local timezone is behind UTC
+  return new Date(iso + 'T12:00:00Z').toLocaleDateString('es-CO', {
+    day: 'numeric', month: 'short', year: 'numeric',
+  })
+}
+
+function buildDateRange(group: CaseGroup): string {
+  const start = fmtDate(group.docs.find((d) => d.document_type === 'INICIAL')?.fecha_inicio)
+  if (!start) return ''
+  const end = fmtDate(group.endDate)
+  return end ? `${start} → ${end}` : `${start} →`
 }
 
 // ── Sub-components ─────────────────────────────────────────────────────────
@@ -99,6 +119,20 @@ export default function ContractsList({ cases, totalDocs, role }: ContractsListP
   const [vigencyFilter, setVigencyFilter] = useState<VigencyStatus | ''>('')
   const [pendingOnly, setPendingOnly] = useState(false)
 
+  // ── Expand/collapse state ─────────────────────────────────────────────────
+
+  const [expandedCases, setExpandedCases] = useState<Set<string>>(
+    () => new Set(cases.filter((c) => EXPANDED_STATUSES.has(c.vigency)).map((c) => c.caseId))
+  )
+
+  const toggleCase = useCallback((id: string) => {
+    setExpandedCases((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) { next.delete(id) } else { next.add(id) }
+      return next
+    })
+  }, [])
+
   const filtered = useMemo(() => {
     const term = search.toLowerCase().trim()
     return cases.filter((g) => {
@@ -109,9 +143,26 @@ export default function ContractsList({ cases, totalDocs, role }: ContractsListP
     })
   }, [cases, search, vigencyFilter, pendingOnly])
 
-  const vigentes    = cases.filter((c) => c.vigency === 'vigente' || c.vigency === 'indefinido' || c.vigency === 'por_vencer' || c.vigency === 'en_licencia').length
-  const porVencer   = cases.filter((c) => c.vigency === 'por_vencer').length
-  const pendientes  = cases.filter((c) => c.docs.some((d) => d.estado === 'generated')).length
+  const allExpanded = filtered.length > 0 && filtered.every((c) => expandedCases.has(c.caseId))
+
+  const toggleAll = useCallback(() => {
+    setExpandedCases(allExpanded ? new Set() : new Set(filtered.map((c) => c.caseId)))
+  }, [allExpanded, filtered])
+
+  // Auto-expand filtered results when any filter is active.
+  // filtered is memoized, so its reference only changes when cases/search/filter change —
+  // including it in deps is safe and avoids the exhaustive-deps warning.
+  useEffect(() => {
+    if (search || vigencyFilter || pendingOnly) {
+      setExpandedCases((prev) => new Set([...prev, ...filtered.map((c) => c.caseId)]))
+    }
+  }, [search, vigencyFilter, pendingOnly, filtered])
+
+  // ── Derived stats ─────────────────────────────────────────────────────────
+
+  const vigentes   = cases.filter((c) => c.vigency === 'vigente' || c.vigency === 'indefinido' || c.vigency === 'por_vencer' || c.vigency === 'en_licencia').length
+  const porVencer  = cases.filter((c) => c.vigency === 'por_vencer').length
+  const pendientes = cases.filter((c) => c.docs.some((d) => d.estado === 'generated')).length
 
   return (
     <div className="space-y-6">
@@ -170,6 +221,12 @@ export default function ContractsList({ cases, totalDocs, role }: ContractsListP
             Limpiar
           </button>
         )}
+        <button
+          onClick={toggleAll}
+          className="ml-auto text-xs text-muted-foreground hover:text-foreground border border-border rounded-md px-3 py-1.5 hover:bg-muted/30 transition-colors shrink-0"
+        >
+          {allExpanded ? 'Colapsar todo' : 'Expandir todo'}
+        </button>
       </div>
 
       {/* List */}
@@ -183,7 +240,13 @@ export default function ContractsList({ cases, totalDocs, role }: ContractsListP
       ) : (
         <div className="space-y-3">
           {filtered.map((group) => (
-            <CaseCard key={group.caseId} group={group} role={role} />
+            <CaseCard
+              key={group.caseId}
+              group={group}
+              role={role}
+              expanded={expandedCases.has(group.caseId)}
+              onToggle={() => toggleCase(group.caseId)}
+            />
           ))}
           {filtered.length < cases.length && (
             <p className="text-xs text-muted-foreground text-center pt-1">
@@ -198,25 +261,56 @@ export default function ContractsList({ cases, totalDocs, role }: ContractsListP
 
 // ── CaseCard ──────────────────────────────────────────────────────────────
 
-function CaseCard({ group, role }: { group: CaseGroup; role: string | null }) {
+function CaseCard({
+  group,
+  role,
+  expanded,
+  onToggle,
+}: {
+  group: CaseGroup
+  role: string | null
+  expanded: boolean
+  onToggle: () => void
+}) {
   const anyPending = group.docs.some((d) => d.estado === 'generated')
-  const isExpired  = group.vigency === 'vencido' // en_licencia is NOT treated as expired
+  const isExpired  = group.vigency === 'vencido'
+  const dateRange  = buildDateRange(group)
 
   return (
     <div className={`rounded-lg border border-border bg-card overflow-hidden ${VIGENCY_BORDER[group.vigency]}`}>
       {/* Header */}
       <div className={`flex items-center justify-between gap-3 px-4 py-3 border-b border-border ${isExpired ? 'bg-muted/10' : 'bg-muted/30'}`}>
-        <div className={`flex items-center gap-2.5 min-w-0 ${isExpired ? 'opacity-60' : ''}`}>
+        {/* Left: toggle button — chevron + identity info */}
+        <button
+          onClick={onToggle}
+          className={`flex items-center gap-2.5 min-w-0 flex-1 text-left hover:opacity-80 transition-opacity ${isExpired ? 'opacity-60' : ''}`}
+        >
+          {expanded
+            ? <ChevronDown  className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+          }
           <GitBranch className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
           <span className="font-mono text-xs font-medium text-muted-foreground shrink-0">{group.caseNumber}</span>
           <span className="text-sm font-medium truncate">{group.employeeName}</span>
-        </div>
+          {!expanded && dateRange && (
+            <span className="hidden sm:inline font-mono text-xs text-muted-foreground shrink-0">
+              · {dateRange}
+            </span>
+          )}
+        </button>
+
+        {/* Right: badges + actions — independent of toggle button */}
         <div className="flex items-center gap-2 shrink-0">
           <VigencyBadge status={group.vigency} daysLeft={group.daysLeft} />
           {anyPending && (
             <span className="hidden sm:inline-flex items-center gap-1 font-mono text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-full px-2 py-0.5">
               <Clock className="h-3 w-3" />
               {group.docs.filter((d) => d.estado === 'generated').length} pendiente{group.docs.filter((d) => d.estado === 'generated').length !== 1 ? 's' : ''}
+            </span>
+          )}
+          {!expanded && (
+            <span className="hidden sm:inline-flex font-mono text-xs text-muted-foreground border border-border rounded-full px-2 py-0.5">
+              {group.docs.length} doc{group.docs.length !== 1 ? 's' : ''}
             </span>
           )}
           {role !== 'viewer' && group.employeeId && !isExpired && group.docs.some((d) => d.document_type === 'INICIAL') && (
@@ -230,40 +324,42 @@ function CaseCard({ group, role }: { group: CaseGroup; role: string | null }) {
         </div>
       </div>
 
-      {/* Documents */}
-      <div className={`divide-y divide-border/60 ${isExpired ? 'opacity-60' : ''}`}>
-        {group.docs.map((doc, idx) => {
-          const isLast = idx === group.docs.length - 1
-          return (
-            <div key={doc.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/10 transition-colors">
-              <div className="flex flex-col items-center self-stretch shrink-0 w-4">
-                <div className="w-px flex-1 bg-border/60" />
-                <div className="w-2 h-px bg-border/60" />
-                {!isLast && <div className="w-px flex-1 bg-border/60" />}
+      {/* Documents — only rendered when expanded */}
+      {expanded && (
+        <div className={`divide-y divide-border/60 ${isExpired ? 'opacity-60' : ''}`}>
+          {group.docs.map((doc, idx) => {
+            const isLast = idx === group.docs.length - 1
+            return (
+              <div key={doc.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/10 transition-colors">
+                <div className="flex flex-col items-center self-stretch shrink-0 w-4">
+                  <div className="w-px flex-1 bg-border/60" />
+                  <div className="w-2 h-px bg-border/60" />
+                  {!isLast && <div className="w-px flex-1 bg-border/60" />}
+                </div>
+                <span className={`shrink-0 inline-flex items-center rounded border px-1.5 py-0.5 font-mono text-xs ${DOCTYPE_COLOR[doc.document_type] ?? 'text-muted-foreground border-border'}`}>
+                  {DOCTYPE_LABEL[doc.document_type] ?? doc.document_type}
+                </span>
+                <span className="font-mono text-xs text-muted-foreground shrink-0 hidden sm:block">
+                  {doc.fecha_inicio ?? '—'}
+                </span>
+                <span className="flex-1" />
+                {doc.estado === 'signed' ? (
+                  <span className="inline-flex items-center gap-1 font-mono text-xs text-emerald-400">
+                    <CheckSquare className="h-3 w-3" /><span className="hidden sm:inline">Firmado</span>
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 font-mono text-xs text-amber-400">
+                    <Clock className="h-3 w-3" /><span className="hidden sm:inline">Pendiente</span>
+                  </span>
+                )}
+                <Link href={`/contracts/${doc.id}`} className="text-xs text-muted-foreground hover:text-primary transition-colors ml-2">
+                  Ver →
+                </Link>
               </div>
-              <span className={`shrink-0 inline-flex items-center rounded border px-1.5 py-0.5 font-mono text-xs ${DOCTYPE_COLOR[doc.document_type] ?? 'text-muted-foreground border-border'}`}>
-                {DOCTYPE_LABEL[doc.document_type] ?? doc.document_type}
-              </span>
-              <span className="font-mono text-xs text-muted-foreground shrink-0 hidden sm:block">
-                {doc.fecha_inicio ?? '—'}
-              </span>
-              <span className="flex-1" />
-              {doc.estado === 'signed' ? (
-                <span className="inline-flex items-center gap-1 font-mono text-xs text-emerald-400">
-                  <CheckSquare className="h-3 w-3" /><span className="hidden sm:inline">Firmado</span>
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 font-mono text-xs text-amber-400">
-                  <Clock className="h-3 w-3" /><span className="hidden sm:inline">Pendiente</span>
-                </span>
-              )}
-              <Link href={`/contracts/${doc.id}`} className="text-xs text-muted-foreground hover:text-primary transition-colors ml-2">
-                Ver →
-              </Link>
-            </div>
-          )
-        })}
-      </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
