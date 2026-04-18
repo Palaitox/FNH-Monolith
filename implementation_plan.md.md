@@ -4,20 +4,19 @@
 
 > Actualizar al cerrar cada sesión. Para detalles, ver las secciones de fase correspondientes abajo.
 
-- **Fase actual:** Phase 14 🔄 (carga de contratos históricos + módulo de contratos pulido)
-- **Último cambio importante:** Rediseño del módulo de contratos — árbol de expedientes, vigencia visual, gap-fill de numeración, dashboard de estado contractual (2026-04-14)
+- **Fase actual:** Phase 15 ✅ — mergeada a main (2026-04-18)
+- **Último cambio importante:** Employee leaves + en_licencia vigency override + contract creation mode split + ciudad_cedula en PDF
 - **Pendientes inmediatos:**
-  - ⏳ Terminar carga de ~32 contratos físicos firmados (usuario en proceso)
-  - ⏳ Expediente 031 — Laura Ángela Ramírez Parra (metadatos pendientes)
-  - ⏳ PR a `main` al estabilizarse la carga
+  - ⏳ Registrar contrato 2025 de Laura Angélica Ramírez + crear su licencia de maternidad en la plataforma
+  - ⏳ Definir y arrancar Phase 16
 - **Bugs abiertos conocidos:** ninguno
-- **Siguiente milestone:** Todos los contratos cargados → commit + PR a `main`
+- **Siguiente milestone:** Phase 16 (por definir con el usuario)
 - **⚠️ Infraestructura:** MCP Supabase apunta a `ukzccqogkbfdtymmgavj`; la app usa `qolnrtoznrgiedyhffbn`. Las migraciones SQL deben aplicarse manualmente en el Dashboard del proyecto correcto.
 
 ---
 
-> **Last updated:** 2026-04-14
-> **Status:** Phase 0 ✅ | Phase 1 ✅ | Phase 2 ✅ | Phase 3 ✅ | Phase 4 ✅ | Phase 5 ✅ | Phase 6 ✅ | Phase 7 ✅ | Phase 8 ✅ | Phase 9 ✅ | Phase 10 ✅ | Phase 11 ✅ | Phase 12 ✅ | Phase 12.x hotfixes ✅ | Phase 13 ✅ | Phase 14 (contracts polish + historical data load) 🔄
+> **Last updated:** 2026-04-18
+> **Status:** Phase 0 ✅ | Phase 1 ✅ | Phase 2 ✅ | Phase 3 ✅ | Phase 4 ✅ | Phase 5 ✅ | Phase 6 ✅ | Phase 7 ✅ | Phase 8 ✅ | Phase 9 ✅ | Phase 10 ✅ | Phase 11 ✅ | Phase 12 ✅ | Phase 12.x hotfixes ✅ | Phase 13 ✅ | Phase 14 ✅ | Phase 15 ✅
 
 ## Stack
 
@@ -538,6 +537,50 @@ Three iOS Safari bugs found during real-device testing. All fixes are mobile-onl
 #### Pending issues (next session)
 - Error on cancel in `/admin/users/new`: exact error message not yet confirmed — likely a Server Component crash with no `error.tsx` boundary. Fix: add `app/admin/error.tsx` and investigate root cause.
 - Role bug when changing active user role: exact reproduction steps + error to be confirmed next session.
+
+### Phase 14 — Contracts Polish + Historical Data Load ✅
+
+- Expediente model fully adopted in production; 32+ historical contracts imported via PDF import flow
+- Gap-fill numeración: `claim_next_case_number()` table-scan + advisory lock (ND-46, migrations 0012–0014)
+- Vigency fallback chain: `current_end_date ?? fecha_terminacion(INICIAL)` (ND-47)
+- `ContractsList.tsx`: case tree view, vigency badges, search + filter, `+ Agregar` button
+- Dashboard "Estado contractual de empleados": sinContrato / pendienteFirma / vigentes summary
+- `getEmployeeContractStatusAction()` added to `contracts/actions/contracts.ts`
+
+### Phase 15 — Employee Leaves, ciudad_cedula, Contract Flow Split ✅
+
+#### Migration 0015 — ciudad_cedula
+- ADD COLUMN `ciudad_cedula text` on `employees`
+- Surfaced in `NewEmployeeForm`, `EmployeeDetail` (edit + read-only), Excel import, PDF ("expedida en [city]")
+- `buildContractVars()` populates `trabajador_ciudad_cedula: employee.ciudad_cedula ?? ''`; PDF renders conditionally in `LaboralIntro` and `ContratoPrestacionServicios`
+
+#### Forma de pago update
+- `SETTINGS_DEFAULTS.formaPago` in `db.ts` and hardcoded value in `contract-pdf.tsx` updated to "MENSUAL ENTRE EL DÍA QUINCE (15) Y EL DÍA VEINTE (20) DE CADA MES"
+
+#### Contract creation mode split (ND-48)
+- `NewContractForm.tsx`: `TIPO_INICIAL_OPTIONS` (TC, MT, PS) vs `TIPO_ADICIONAL_OPTIONS` (Otro Sí)
+- `modoAdicional = !!preCaseId`; title changes to "Agregar al expediente" when true
+- `+ Agregar` button in `CaseCard` guarded: `group.docs.some(d => d.document_type === 'INICIAL')`
+- Button label on `/contracts` page: "+ Nuevo contrato inicial"
+- `indefinido` removed as contract tipo option
+
+#### Employee stats grid fix
+- `EmployeesList.tsx`: `sm:grid-cols-4` → `sm:grid-cols-5` (5 stat cards render in one row)
+
+#### Migration 0016 — employee_leaves (ND-49)
+- CREATE TABLE `employee_leaves`: id, employee_id (FK→employees ON DELETE CASCADE), leave_type (CHECK: maternidad/paternidad/incapacidad/luto/otro), start_date, expected_end_date, actual_end_date, notes, created_at
+- RLS: SELECT open to authenticated; INSERT/UPDATE/DELETE restricted to admin + coordinator via `get_my_role()`
+- New shared types: `LeaveType`, `EmployeeLeave`, `LEAVE_TYPE_LABELS` in `employee-types.ts`
+- New module: `app/employees/actions/leaves.ts` — `getEmployeeLeavesAction`, `createLeaveAction`, `closeLeaveAction`
+- `EmployeeDetail.tsx`: leave management section — active leave banner + close button, create form, history list
+- `app/employees/[id]/page.tsx`: fetches `leaves` in parallel via `getEmployeeLeavesAction`
+
+#### en_licencia vigency override (ND-49)
+- `getActiveLeavesMap(supabase)` in `db.ts` — returns `Map<employee_id, EmployeeLeave>` for all active leaves
+- `groupByCases()` in `contracts/page.tsx`: `vencido` → `en_licencia` when employee is in map
+- `getEmployeeContractStatusAction()` in `contracts/actions/contracts.ts`: employees on leave with expired contracts → `enLicencia` bucket (not `sinContrato`)
+- `VigencyStatus` union extended with `'en_licencia'`; `VIGENCY_BORDER` + `VigencyBadge` updated (violet)
+- Dashboard: 4th summary card "En licencia" (violet) + employee list section
 
 ## Rescued Assets from Existing Codebase
 

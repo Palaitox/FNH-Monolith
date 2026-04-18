@@ -5,29 +5,30 @@
 ---
 
 ## ¿En qué fase estamos?
-**Phase 13 completada. Phase 14 en curso** (carga de contratos históricos + módulo de contratos pulido).
+**Phase 15 completada y mergeada a main. Phase 16 por definir.**
 
-Phase 13 cerró con: viewer role, UX improvements, Otro Sí, arquitectura de sesión.
-Phase 14 abrió esta sesión con la carga de los 32 contratos históricos físicamente firmados.
+Phase 14 cerró con: carga de contratos históricos, módulo de contratos pulido, gap-fill de numeración.
+Phase 15 añadió: campo `ciudad_cedula`, licencias de empleados (`employee_leaves`), override `en_licencia`, split de creación de contratos.
 
 ---
 
-## Estado real hoy (2026-04-14)
+## Estado real hoy (2026-04-18)
 
-### Completado esta sesión
-- ✅ `termino_indefinido` como 4° valor de `JornadaLaboral` (tipo + DB constraint + UI en 4 lugares)
-- ✅ Importación de PDF firmado en el flujo de nuevo contrato (modo import vs. modo generate)
-- ✅ Modelo de numeración de expedientes reescrito: gap-fill + auto-delete de casos huérfanos (ND-46)
-- ✅ Migraciones 0012–0014 aplicadas en producción (`qolnrtoznrgiedyhffbn`)
-- ✅ Vista de contratos rediseñada: árbol de expedientes con ramas, vigencia visual (ND-47)
-- ✅ Búsqueda y filtros en el módulo de contratos (Client Component `ContractsList.tsx`)
-- ✅ Sección "Estado contractual de empleados" en el dashboard (sin contrato / pendiente firma / vigente)
-- ✅ NDs 46 y 47 registradas
+### Completado en Phase 15
+- ✅ Campo `ciudad_cedula` en empleados (migration 0015) — visible en formularios y en PDF ("expedida en …")
+- ✅ Forma de pago actualizada: "MENSUAL ENTRE EL DÍA QUINCE (15) Y EL DÍA VEINTE (20) DE CADA MES"
+- ✅ Split de creación de contratos: "Nuevo contrato inicial" (TC/MT/PS) vs "Agregar al expediente" (Otro Sí) — ND-48
+- ✅ `+ Agregar` solo aparece en casos que ya tienen documento INICIAL — ND-48
+- ✅ Grid de stats de empleados corregido: 5 columnas sin orphan card
+- ✅ Tabla `employee_leaves` (migration 0016 aplicada en producción) + UI de gestión en `EmployeeDetail`
+- ✅ Override `en_licencia` en `groupByCases()` y `getEmployeeContractStatusAction()` — ND-49
+- ✅ Dashboard: 4ª card "En licencia" (violeta) + lista de empleados en licencia
+- ✅ NDs 48 y 49 registradas
+- ✅ `Schema.sql.md` actualizado con migraciones 0015–0016
+- ✅ Mergeado a `main`, Vercel deploy exitoso
 
-### Pendiente
-- ⏳ Terminar de subir los ~32 contratos físicos restantes (el usuario está en proceso)
-- ⏳ Contrato de **Laura Ángela Ramírez Parra** (expediente 031) — metadatos pendientes de confirmar
-- ⏳ PR a `main` cuando se estabilice la carga de datos
+### Pendiente operativo (no code)
+- ⏳ Registrar el contrato 2025 de **Laura Angélica Ramírez** (flujo de importar PDF firmado, fechas reales de 2025) y crear su licencia de maternidad en `/employees/[id]`
 
 ---
 
@@ -35,6 +36,9 @@ Phase 14 abrió esta sesión con la carga de los 32 contratos históricos físic
 
 | Invariante | Dónde está | ND |
 |---|---|---|
+| Override `en_licencia` en DOS lugares: `groupByCases()` + `getEmployeeContractStatusAction()` | `contracts/page.tsx` y `contracts/actions/contracts.ts` | ND-49 |
+| `+ Agregar` solo si el caso tiene documento INICIAL | `ContractsList.tsx`: `group.docs.some(d => d.document_type === 'INICIAL')` | ND-48 |
+| Tipos iniciales (TC/MT/PS) crean case nuevo; Otro Sí se adjunta al case existente | `NewContractForm.tsx`: `modoAdicional = !!preCaseId` | ND-48 |
 | `claim_next_case_number()` escanea la tabla, no un contador persistente | `db.ts` → `supabase.rpc('claim_next_case_number')` | ND-46 |
 | `deleteContractAction` borra el case si queda vacío de documentos | `contracts/actions/contracts.ts` | ND-46 |
 | Vigencia usa `current_end_date ?? fecha_terminacion(INICIAL)` | `ContractsList.tsx` y `getEmployeeContractStatusAction` | ND-47 |
@@ -47,24 +51,21 @@ Phase 14 abrió esta sesión con la carga de los 32 contratos históricos físic
 
 ## ⚠️ Dato crítico de infraestructura
 
-La app (`next dev` / Vercel) se conecta a **`qolnrtoznrgiedyhffbn.supabase.co`** (`.env.local`).
-El MCP de Supabase disponible en esta sesión **solo tiene acceso a `ukzccqogkbfdtymmgavj`** (proyecto diferente).
-
-**Consecuencia:** cualquier migración SQL debe correrse manualmente en el Dashboard del proyecto correcto (`qolnrtoznrgiedyhffbn`). No usar el MCP para verificar estado de producción — los resultados son del proyecto equivocado.
+La app usa **`qolnrtoznrgiedyhffbn.supabase.co`**.
+El MCP de Supabase en sesión **apunta a `ukzccqogkbfdtymmgavj`** (proyecto diferente).
+Cualquier migración SQL debe correrse manualmente en el Dashboard del proyecto correcto (`qolnrtoznrgiedyhffbn`).
 
 ---
 
 ## Siguiente acción concreta
 
-1. Continuar subiendo los contratos físicos desde `/contracts/new` (importar PDF firmado)
-2. Confirmar metadatos del expediente 031 (Laura Ángela Ramírez Parra) y crearlo
-3. Una vez todos los contratos estén cargados: commit + PR a `main`
-4. Siguiente feature: por definir con el usuario
+1. Registrar contrato 2025 de Laura Angélica Ramírez + crear su licencia de maternidad
+2. Definir features de Phase 16 con el usuario
+3. Desarrollar en rama `improvements` → commit → merge a `main`
 
 ---
 
 ## Errores recientes a evitar
+- `let { a, b } = fn()` donde `b` nunca se reasigna → ESLint `prefer-const` lo convierte en error de build; usar `const result = fn(); let a = result.a; const b = result.b`
 - No consultar el MCP de Supabase para verificar estado de producción — apunta al proyecto equivocado
-- 502 de Supabase es transitorio — reintentar la operación, no buscar un bug de código
-- `generate_series(1, 0)` devuelve cero filas — el gap-fill retorna correctamente NULL en ese caso, lo que produce el primer número `001`; no es un bug
 - Pasar `React.ReactElement` como prop dentro de `<Text>` en react-pdf descarta páginas silenciosamente
