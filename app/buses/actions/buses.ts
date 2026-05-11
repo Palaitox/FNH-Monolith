@@ -29,7 +29,7 @@ export async function listDrivers(): Promise<Driver[]> {
     .select('*')
     .is('deactivated_at', null)
     .order('full_name', { ascending: true })
-  if (error) { console.error(error); return [] }
+  if (error) throw error
   return data ?? []
 }
 
@@ -39,17 +39,18 @@ export async function listAllDrivers(): Promise<Driver[]> {
     .from('drivers')
     .select('*')
     .order('full_name', { ascending: true })
-  if (error) { console.error(error); return [] }
+  if (error) throw error
   return data ?? []
 }
 
 export async function getDriverById(id: string): Promise<Driver | null> {
   const supabase = await createClient()
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('drivers')
     .select('*')
     .eq('id', id)
     .maybeSingle()
+  if (error) throw error
   return data
 }
 
@@ -106,17 +107,18 @@ export async function listVehicles(): Promise<Vehicle[]> {
     .select('*')
     .is('deactivated_at', null)
     .order('plate', { ascending: true })
-  if (error) { console.error(error); return [] }
+  if (error) throw error
   return data ?? []
 }
 
 export async function getVehicleById(id: string): Promise<Vehicle | null> {
   const supabase = await createClient()
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('vehicles')
     .select('*')
     .eq('id', id)
     .maybeSingle()
+  if (error) throw error
   return data
 }
 
@@ -156,7 +158,7 @@ export async function listVerificationPairs(): Promise<VerificationPairWithEntit
     .select('*, vehicles(plate, type), drivers(full_name, cedula)')
     .is('deactivated_at', null)
     .order('verified_at', { ascending: false })
-  if (error) { console.error(error); return [] }
+  if (error) throw error
   return (data ?? []) as unknown as VerificationPairWithEntities[]
 }
 
@@ -169,7 +171,10 @@ export async function getVerificationPair(
     .select('*, vehicles(plate, type), drivers(full_name, cedula)')
     .eq('id', id)
     .single()
-  if (error) { console.error(error); return null }
+  if (error) {
+    if (error.code === 'PGRST116') return null
+    throw error
+  }
   return data as unknown as VerificationPairWithEntities
 }
 
@@ -213,7 +218,7 @@ export async function listDocumentRequirements(
   if (category) query = query.eq('category', category)
 
   const { data, error } = await query
-  if (error) { console.error(error); return [] }
+  if (error) throw error
   return data ?? []
 }
 
@@ -275,7 +280,7 @@ export async function recordDriverDocumentsAction(
         }),
       ),
     )
-    results.forEach((res, i) => {
+    results.forEach((res) => {
       if (res.status === 'failed') {
         console.error(`notifications: driver alert failed — ${res.error}`)
       }
@@ -338,7 +343,7 @@ export async function recordVehicleDocumentsAction(
         }),
       ),
     )
-    results.forEach((res, i) => {
+    results.forEach((res) => {
       if (res.status === 'failed') {
         console.error(`notifications: vehicle alert failed — ${res.error}`)
       }

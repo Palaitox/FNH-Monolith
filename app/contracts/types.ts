@@ -30,6 +30,8 @@ export interface ContractDocument {
   pdf_filename: string | null
   generated_at: string
   signed_at: string | null
+  firma_trabajador: string | null
+  firma_representante: string | null
 }
 
 /** ContractDocument with its parent case and employee name joined */

@@ -29,8 +29,8 @@ import type { ContractVars } from './pdf-vars'
 
 const S = StyleSheet.create({
   page: {
-    fontFamily: 'Times-Roman',
-    fontSize: 10,
+    fontFamily: 'Helvetica',
+    fontSize: 11,
     paddingTop: 80,
     paddingBottom: 70,
     paddingHorizontal: 50,
@@ -78,8 +78,8 @@ const S = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    fontFamily: 'Times-Bold',
-    fontSize: 11,
+    fontFamily: 'Helvetica-Bold',
+    fontSize: 12,
     textAlign: 'center',
     textTransform: 'uppercase',
   },
@@ -94,7 +94,7 @@ const S = StyleSheet.create({
     borderBottom: '1pt solid #000',
   },
   tableLabel: {
-    fontFamily: 'Times-Bold',
+    fontFamily: 'Helvetica-Bold',
     fontSize: 9,
     borderRight: '1pt solid #000',
     paddingHorizontal: 4,
@@ -109,7 +109,7 @@ const S = StyleSheet.create({
     borderRight: '1pt solid #000',
   },
   tableLabelCentered: {
-    fontFamily: 'Times-Bold',
+    fontFamily: 'Helvetica-Bold',
     fontSize: 9,
     borderRight: '1pt solid #000',
     paddingHorizontal: 4,
@@ -127,20 +127,20 @@ const S = StyleSheet.create({
   },
   // Body text
   body: {
-    fontSize: 10,
+    fontSize: 11,
     textAlign: 'justify',
     marginBottom: 6,
     lineHeight: 1.45,
   },
   bold: {
-    fontFamily: 'Times-Bold',
+    fontFamily: 'Helvetica-Bold',
   },
   underlineBold: {
-    fontFamily: 'Times-Bold',
+    fontFamily: 'Helvetica-Bold',
     textDecoration: 'underline',
   },
   italic: {
-    fontFamily: 'Times-Italic',
+    fontFamily: 'Helvetica-Oblique',
   },
   // Signature block
   sigRow: {
@@ -152,15 +152,15 @@ const S = StyleSheet.create({
     flex: 1,
   },
   sigLabel: {
-    fontFamily: 'Times-Bold',
-    fontSize: 10,
+    fontFamily: 'Helvetica-Bold',
+    fontSize: 11,
     marginBottom: 50,
   },
   sigName: {
-    fontSize: 10,
+    fontSize: 11,
   },
   sigLine: {
-    fontSize: 10,
+    fontSize: 11,
     marginTop: 2,
   },
   // Appendix separator
@@ -169,8 +169,8 @@ const S = StyleSheet.create({
     marginVertical: 8,
   },
   sectionTitle: {
-    fontFamily: 'Times-Bold',
-    fontSize: 10,
+    fontFamily: 'Helvetica-Bold',
+    fontSize: 11,
     textAlign: 'center',
     textTransform: 'uppercase',
     marginBottom: 6,
@@ -182,8 +182,8 @@ const S = StyleSheet.create({
     marginBottom: 2,
   },
   formLabel: {
-    fontFamily: 'Times-Bold',
-    fontSize: 10,
+    fontFamily: 'Helvetica-Bold',
+    fontSize: 11,
   },
   // Signature embed placeholder box
   sigBox: {
@@ -306,7 +306,6 @@ function SigSpace({ firma }: { firma?: string }) {
 function AppendixAutorizacionImagenes({ v }: { v: ContractVars }) {
   return (
     <>
-      <View style={S.separator} />
       <Text style={S.sectionTitle}>
         {'AUTORIZACION PARA LA PUBLICACIÓN DE IMÁGENES SOBRE FOTOGRAFIAS Y\n'}
         {'AUDIOVISUALES (VIDEOS) EN EVENTOS REALIZADOS POR LA FUNDACION NUEVO\n'}
@@ -350,7 +349,6 @@ function AppendixAutorizacionImagenes({ v }: { v: ContractVars }) {
 function AppendixDatosPersonales({ v }: { v: ContractVars }) {
   return (
     <>
-      <View style={S.separator} />
       <Text style={S.sectionTitle}>{'AUTORIZACIÓN PARA EL TRATAMIENTO DE DATOS PERSONALES'}</Text>
       <Text style={[S.body, S.italic]}>{'(Ley 1581 de 2012 y Decreto Reglamentario 1377 de 2013)'}</Text>
       <Text style={S.body}>
@@ -391,7 +389,6 @@ function AppendixDatosPersonales({ v }: { v: ContractVars }) {
 function AppendixConfidencialidad({ v }: { v: ContractVars }) {
   return (
     <>
-      <View style={S.separator} />
       <Text style={S.sectionTitle}>{'ACUERDO DE CONFIDENCIALIDAD'}</Text>
       <Text style={S.body}>{'Entre los suscritos a saber:'}</Text>
       <Text style={S.body}>
@@ -476,7 +473,7 @@ function AppendixConfidencialidad({ v }: { v: ContractVars }) {
       <View style={S.sigRow}>
         <View style={S.sigCol}>
           <Text style={S.sigLabel}>{'PARTE REVELADORA'}</Text>
-          <Text style={{ height: 40 }} />
+          <SigSpace firma={v.firma_representante} />
           <Text style={S.sigName}>{'DORA PATRICIA CARMONA SOTO'}</Text>
           <Text style={S.sigLine}>{'C.C. No. 29.158.068 de Ansermanuevo (V)'}</Text>
           <Text style={S.sigLine}>{'Representante Legal'}</Text>
@@ -521,7 +518,7 @@ function AppendixPreaviso({ v }: { v: ContractVars }) {
       <View style={S.sigRow}>
         <View style={S.sigCol}>
           <Text style={S.sigLabel}>{'EL EMPLEADOR'}</Text>
-          <Text style={{ height: 40 }} />
+          <SigSpace firma={v.firma_representante} />
           <Text style={S.sigName}>{'DORA PATRICIA CARMONA SOTO'}</Text>
           <Text style={S.sigLine}>{'C.C. 29.158.068 de Ansermanuevo (V)'}</Text>
           <Text style={S.sigLine}>{'Representante Legal'}</Text>
@@ -591,7 +588,7 @@ function ClausesLaboralTail({ v }: { v: ContractVars }) {
       <View style={S.sigRow}>
         <View style={S.sigCol}>
           <Text style={S.sigLabel}>{'EL EMPLEADOR'}</Text>
-          <Text style={{ height: 40 }} />
+          <SigSpace firma={v.firma_representante} />
           <Text style={S.sigName}>{'DORA PATRICIA CARMONA SOTO'}</Text>
           <Text style={S.sigLine}>{'C.C. 29.158.068 De Ansermanuevo (V).'}</Text>
           <Text style={S.sigLine}>{'Representante Legal'}</Text>
@@ -702,17 +699,20 @@ function ContratoLaboral({ v, titulo, octavaBody }: { v: ContractVars; titulo: s
         <PageFooter />
         <ClausesLaboralTail v={v} />
       </Page>
-      {/* Blank separator page */}
-      <Page style={S.page}>
-        <PageHeader />
-        <PageFooter />
-      </Page>
-      {/* Appendices page */}
+      {/* Appendices — each on its own page */}
       <Page style={S.page}>
         <PageHeader />
         <PageFooter />
         <AppendixAutorizacionImagenes v={v} />
+      </Page>
+      <Page style={S.page}>
+        <PageHeader />
+        <PageFooter />
         <AppendixDatosPersonales v={v} />
+      </Page>
+      <Page style={S.page}>
+        <PageHeader />
+        <PageFooter />
         <AppendixConfidencialidad v={v} />
       </Page>
       {/* Preaviso */}
@@ -868,7 +868,7 @@ function ContratoPrestacionServicios({ v }: { v: ContractVars }) {
         <View style={S.sigRow}>
           <View style={S.sigCol}>
             <Text style={S.sigLabel}>{'EL CONTRATANTE'}</Text>
-            <Text style={{ height: 40 }} />
+            <SigSpace firma={v.firma_representante} />
             <Text style={S.sigName}>{'DORA PATRICIA CARMONA SOTO'}</Text>
             <Text style={S.sigLine}>{'C.C. 29.158.068'}</Text>
             <Text style={S.sigLine}>{'Representante Legal'}</Text>
@@ -883,17 +883,20 @@ function ContratoPrestacionServicios({ v }: { v: ContractVars }) {
           </View>
         </View>
       </Page>
-      {/* Blank separator page */}
-      <Page style={S.page}>
-        <PageHeader />
-        <PageFooter />
-      </Page>
-      {/* Appendices */}
+      {/* Appendices — each on its own page */}
       <Page style={S.page}>
         <PageHeader />
         <PageFooter />
         <AppendixAutorizacionImagenes v={v} />
+      </Page>
+      <Page style={S.page}>
+        <PageHeader />
+        <PageFooter />
         <AppendixDatosPersonales v={v} />
+      </Page>
+      <Page style={S.page}>
+        <PageHeader />
+        <PageFooter />
         <AppendixConfidencialidad v={v} />
       </Page>
       {/* Preaviso */}
@@ -909,7 +912,7 @@ function OtroSi({ v }: { v: ContractVars }) {
   const mesUpper = (v.mes_inicio ?? '').toUpperCase()
 
   const fullWidthBold = {
-    fontFamily: 'Times-Bold' as const,
+    fontFamily: 'Helvetica-Bold' as const,
     fontSize: 9,
     borderRight: '1pt solid #000' as const,
     paddingHorizontal: 4,
@@ -981,7 +984,7 @@ function OtroSi({ v }: { v: ContractVars }) {
         <View style={S.sigRow}>
           <View style={S.sigCol}>
             <Text style={S.sigLabel}>{'EL EMPLEADOR'}</Text>
-            <Text style={{ height: 40 }} />
+            <SigSpace firma={v.firma_representante} />
             <Text style={S.sigName}>{'DORA PATRICIA CARMONA SOTO'}</Text>
             <Text style={S.sigLine}>{'C.C. No. 29.158.068 de Ansermanuevo'}</Text>
             <Text style={S.sigLine}>{'Representante Legal'}</Text>

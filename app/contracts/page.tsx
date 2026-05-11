@@ -53,6 +53,8 @@ function groupByCases(
       fecha_inicio: doc.fecha_inicio,
       estado: doc.estado,
       generated_at: doc.generated_at,
+      firma_trabajador: doc.firma_trabajador,
+      firma_representante: doc.firma_representante,
     })
   }
 

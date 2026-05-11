@@ -110,7 +110,7 @@ export async function GET(request: NextRequest) {
           .single()
 
         if (insertErr || !newEvent) {
-          console.error(`cron: insert driver event failed`, insertErr)
+          console.error(`cron: insert driver event failed — driver=${driver.id} (${driver.full_name}) req=${req.id} (${req.name})`, insertErr)
           continue
         }
 
@@ -180,7 +180,7 @@ export async function GET(request: NextRequest) {
           .single()
 
         if (insertErr || !newEvent) {
-          console.error(`cron: insert vehicle event failed`, insertErr)
+          console.error(`cron: insert vehicle event failed — vehicle=${vehicle.id} (${vehicle.plate}) req=${req.id} (${req.name})`, insertErr)
           continue
         }
 

@@ -1,10 +1,12 @@
 import Link from 'next/link'
 import { getDashboardStats, getEmployeeContractStatusAction } from '@/app/contracts/actions/contracts'
 import { getFleetComplianceAction } from '@/app/buses/actions/buses'
+import { getAllActiveLeavesAction } from '@/app/employees/actions/leaves'
 import { getUserRole } from '@/app/(shared)/lib/auth'
 import { StatusBadge } from '@/app/buses/components/StatusBadge'
-import { FileText, Users, CheckSquare, Clock, Bus, AlertTriangle, UserCheck, BedDouble } from 'lucide-react'
+import { FileText, Users, CheckSquare, Clock, Bus, AlertTriangle, UserCheck, BedDouble, Pen } from 'lucide-react'
 import type { DocumentStatus } from '@/app/buses/types'
+import { LEAVE_TYPE_LABELS } from '@/app/(shared)/lib/employee-types'
 
 const STATUS_ORDER: DocumentStatus[] = ['Crítico', 'Alerta', 'Seguimiento', 'Vigente']
 
@@ -30,12 +32,14 @@ const STATUS_NUM: Record<DocumentStatus, string> = {
 }
 
 export default async function DashboardPage() {
-  const [stats, fleet, role, contractStatus] = await Promise.all([
+  const [stats, fleet, role, contractStatus, activeLeaves] = await Promise.all([
     getDashboardStats(),
     getFleetComplianceAction(),
     getUserRole(),
     getEmployeeContractStatusAction(),
+    getAllActiveLeavesAction(),
   ])
+  const leavesMap = new Map(activeLeaves.map((l) => [l.employeeId, l.leave]))
 
   const contractCards = [
     { label: 'Empleados', value: stats.totalEmployees, icon: Users },
@@ -80,6 +84,34 @@ export default async function DashboardPage() {
             </div>
           ))}
         </div>
+
+        {/* Pending representative signature — visible to all roles */}
+        {stats.pendingRepSignature.length > 0 && (
+          <div className="rounded-lg border border-violet-500/20 overflow-hidden">
+            <div className="px-4 py-2.5 bg-violet-900/10 border-b border-violet-500/20 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Pen className="h-3.5 w-3.5 text-violet-400" />
+                <p className="text-xs font-medium text-violet-400 uppercase tracking-wide">
+                  {role === 'supervisor' || role === 'admin'
+                    ? `Pendientes de tu firma (${stats.pendingRepSignature.length})`
+                    : `Pendientes de firma de la representante legal (${stats.pendingRepSignature.length})`}
+                </p>
+              </div>
+            </div>
+            <div className="divide-y divide-border">
+              {stats.pendingRepSignature.map((doc) => (
+                <Link
+                  key={doc.id}
+                  href={`/contracts/${doc.id}`}
+                  className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/20 transition-colors"
+                >
+                  <span className="text-sm font-medium">{doc.employeeName}</span>
+                  <span className="font-mono text-xs text-muted-foreground">{doc.caseNumber}</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
       </section>
 
       {/* ── Employee contract status ─────────────────────────────────────── */}
@@ -193,16 +225,29 @@ export default async function DashboardPage() {
               </p>
             </div>
             <div className="divide-y divide-border">
-              {contractStatus.enLicencia.map((emp) => (
-                <Link
-                  key={emp.id}
-                  href={`/employees/${emp.id}`}
-                  className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/20 transition-colors"
-                >
-                  <span className="text-sm font-medium">{emp.full_name}</span>
-                  <span className="text-xs text-muted-foreground hover:text-primary transition-colors">Ver →</span>
-                </Link>
-              ))}
+              {contractStatus.enLicencia.map((emp) => {
+                const leave = leavesMap.get(emp.id)
+                return (
+                  <Link
+                    key={emp.id}
+                    href={`/employees/${emp.id}`}
+                    className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/20 transition-colors"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium">{emp.full_name}</p>
+                      {leave && (
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {LEAVE_TYPE_LABELS[leave.leave_type]}
+                          {leave.expected_end_date && (
+                            <> · retorno est. {new Date(leave.expected_end_date + 'T12:00:00Z').toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' })}</>
+                          )}
+                        </p>
+                      )}
+                    </div>
+                    <span className="text-xs text-muted-foreground hover:text-primary transition-colors shrink-0 ml-4">Ver →</span>
+                  </Link>
+                )
+              })}
             </div>
           </div>
         )}
