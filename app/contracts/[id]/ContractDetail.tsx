@@ -3,16 +3,18 @@
 import { useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { CheckSquare, Clock, ShieldCheck, ShieldAlert, Trash2, Upload, PenLine, ExternalLink } from 'lucide-react'
+import { CheckSquare, Clock, ShieldCheck, ShieldAlert, Trash2, Upload, PenLine, ExternalLink, Pen } from 'lucide-react'
 import { createClient } from '@/lib/client'
 import {
   attachSignedPdfAction,
+  attachRepresentativeSignatureAction,
   deleteContractAction,
   getAppSettings,
 } from '@/app/contracts/actions/contracts'
 import { verifyContractIntegrity } from '@/app/contracts/actions/verify-integrity'
 import type { ContractDocumentFull, ContractAuditLog } from '@/app/contracts/types'
 import type { Employee } from '@/app/(shared)/lib/employee-types'
+import type { UserRole } from '@/app/(shared)/lib/auth'
 import { hashData } from '@/app/contracts/lib/security'
 import SignatureModal from './SignatureModal'
 
@@ -20,7 +22,7 @@ interface Props {
   contract: ContractDocumentFull
   auditLogs: ContractAuditLog[]
   employee: Employee | null
-  role: 'admin' | 'coordinator' | 'viewer' | null
+  role: UserRole | null
 }
 
 const DOCTYPE_LABEL: Record<string, string> = {
@@ -45,6 +47,11 @@ export default function ContractDetail({ contract, auditLogs, employee, role }: 
   const [signing, setSigning] = useState(false)
   const [signError, setSignError] = useState<string | null>(null)
   const [justSigned, setJustSigned] = useState(false)
+
+  const [showRepSignatureModal, setShowRepSignatureModal] = useState(false)
+  const [signingRep, setSigningRep] = useState(false)
+  const [signRepError, setSignRepError] = useState<string | null>(null)
+  const [justSignedRep, setJustSignedRep] = useState(false)
 
   const [openingPdf, setOpeningPdf] = useState(false)
   const [openPdfError, setOpenPdfError] = useState<string | null>(null)
@@ -98,7 +105,11 @@ export default function ContractDetail({ contract, auditLogs, employee, role }: 
         fechaTerminacion: contract.fecha_terminacion ?? undefined,
         lugarTrabajo: settings.lugarTrabajo,
       })
-      const vars = { ...baseVars, firma: signatureDataUrl }
+      const vars = {
+        ...baseVars,
+        firma: signatureDataUrl,
+        firma_representante: contract.firma_representante ?? undefined,
+      }
 
       const tipoForPdf = contract.document_type === 'INICIAL'
         ? (contract.tipo_contrato ?? '')
@@ -116,7 +127,7 @@ export default function ContractDetail({ contract, auditLogs, employee, role }: 
         .upload(pdfPath, pdfBlob, { contentType: 'application/pdf', upsert: true })
       if (upErr) throw new Error(`Error al subir el PDF: ${upErr.message}`)
 
-      await attachSignedPdfAction(contract.id, pdfPath, filename, hash)
+      await attachSignedPdfAction(contract.id, pdfPath, filename, hash, signatureDataUrl)
 
       setJustSigned(true)
 
@@ -141,6 +152,57 @@ export default function ContractDetail({ contract, auditLogs, employee, role }: 
       setSignError(e instanceof Error ? e.message : 'Error al generar el contrato firmado.')
     } finally {
       setSigning(false)
+    }
+  }
+
+  async function handleRepresentativeSignatureConfirmed(signatureDataUrl: string) {
+    if (!employee) return
+    setShowRepSignatureModal(false)
+    setSigningRep(true)
+    setSignRepError(null)
+    try {
+      const [{ generateContractPdf }, { buildContractVars }, settings] = await Promise.all([
+        import('@/app/contracts/lib/contract-pdf'),
+        import('@/app/contracts/lib/pdf-vars'),
+        getAppSettings(),
+      ])
+
+      const baseVars = buildContractVars(employee, {
+        numeroContrato: caseNumber,
+        fechaInicio: contract.fecha_inicio ?? '',
+        fechaTerminacion: contract.fecha_terminacion ?? undefined,
+        lugarTrabajo: settings.lugarTrabajo,
+      })
+      const vars = {
+        ...baseVars,
+        firma: contract.firma_trabajador ?? undefined,
+        firma_representante: signatureDataUrl,
+      }
+
+      const tipoForPdf = contract.document_type === 'INICIAL'
+        ? (contract.tipo_contrato ?? '')
+        : contract.document_type.toLowerCase()
+
+      const pdfBlob = await generateContractPdf(vars, tipoForPdf)
+      const buffer = await pdfBlob.arrayBuffer()
+      const hash = await hashData(buffer)
+
+      const filename = `contrato_${caseNumber}_firmado.pdf`
+      const pdfPath = `pdf/${caseNumber}_signed.pdf`
+      const supabase = createClient()
+      const { error: upErr } = await supabase.storage
+        .from(STORAGE_BUCKET)
+        .upload(pdfPath, pdfBlob, { contentType: 'application/pdf', upsert: true })
+      if (upErr) throw new Error(`Error al subir el PDF: ${upErr.message}`)
+
+      await attachRepresentativeSignatureAction(contract.id, pdfPath, filename, hash, signatureDataUrl)
+
+      setJustSignedRep(true)
+      router.refresh()
+    } catch (e) {
+      setSignRepError(e instanceof Error ? e.message : 'Error al generar el PDF con firma del representante.')
+    } finally {
+      setSigningRep(false)
     }
   }
 
@@ -194,6 +256,13 @@ export default function ContractDetail({ contract, auditLogs, employee, role }: 
           onClose={() => setShowSignatureModal(false)}
         />
       )}
+      {showRepSignatureModal && (
+        <SignatureModal
+          workerName="DORA PATRICIA CARMONA SOTO — Representante Legal"
+          onConfirm={handleRepresentativeSignatureConfirmed}
+          onClose={() => setShowRepSignatureModal(false)}
+        />
+      )}
 
       <div className="px-4 py-6 sm:px-6 max-w-3xl mx-auto space-y-8">
 
@@ -221,6 +290,16 @@ export default function ContractDetail({ contract, auditLogs, employee, role }: 
               ) : (
                 <span className="inline-flex items-center gap-1 font-mono text-xs font-medium text-amber-500 border border-amber-500/20 bg-amber-500/10 rounded-full px-2.5 py-0.5">
                   <Clock className="h-3 w-3" /> Pendiente
+                </span>
+              )}
+              {contract.firma_trabajador && (
+                <span className="hidden sm:inline-flex items-center gap-1 font-mono text-xs text-emerald-400/70 border border-emerald-500/20 rounded-full px-2 py-0.5">
+                  <CheckSquare className="h-3 w-3" /> Trabajador firmó
+                </span>
+              )}
+              {contract.firma_representante && (
+                <span className="hidden sm:inline-flex items-center gap-1 font-mono text-xs text-violet-400/80 border border-violet-500/20 rounded-full px-2 py-0.5">
+                  <CheckSquare className="h-3 w-3" /> Representante firmó
                 </span>
               )}
             </div>
@@ -278,6 +357,44 @@ export default function ContractDetail({ contract, auditLogs, employee, role }: 
               <PenLine className="h-4 w-4" />
               {signing ? 'Generando PDF firmado…' : 'Capturar firma del trabajador'}
             </button>
+          </section>
+        )}
+
+        {/* Representative signature — only for documents signed via digital pad (firma_trabajador stored) */}
+        {isSignedState && !!contract.firma_trabajador && employee && (role === 'supervisor' || role === 'admin') && (
+          <section className="rounded-lg border border-violet-500/20 bg-violet-500/5 p-5 space-y-3">
+            <h2 className={labelClass}>Firma de la representante legal</h2>
+            {contract.firma_representante ? (
+              <div className="flex items-center gap-2 text-sm text-emerald-400">
+                <CheckSquare className="h-4 w-4 shrink-0" />
+                La representante legal ya firmó este documento.
+              </div>
+            ) : (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  Agrega la firma de Dora Patricia Carmona Soto al slot del representante legal.
+                  El PDF se regenerará con ambas firmas.
+                </p>
+                {signRepError && (
+                  <p className="font-mono text-xs text-destructive bg-destructive/10 rounded px-3 py-1.5">
+                    {signRepError}
+                  </p>
+                )}
+                {justSignedRep && (
+                  <p className="font-mono text-xs text-violet-400 bg-violet-500/10 rounded px-3 py-1.5">
+                    Firma de la representante legal guardada exitosamente.
+                  </p>
+                )}
+                <button
+                  onClick={() => setShowRepSignatureModal(true)}
+                  disabled={signingRep}
+                  className="inline-flex items-center gap-2 rounded-md bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50 transition-colors"
+                >
+                  <Pen className="h-4 w-4" />
+                  {signingRep ? 'Generando PDF…' : 'Capturar firma del representante legal'}
+                </button>
+              </>
+            )}
           </section>
         )}
 

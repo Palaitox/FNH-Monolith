@@ -13,6 +13,7 @@ import {
   peekNextCaseNumber,  // used by nextContractNumber() for form display
   getCasesByEmployee,
   attachSignedPdf,
+  attachRepresentativeSignature,
   getStats,
   getSettings,
   getActiveLeavesMap,
@@ -273,7 +274,8 @@ export async function deleteContractAction(id: string) {
       .select('id', { count: 'exact', head: true })
       .eq('case_id', caseId)
     if ((count ?? 0) === 0) {
-      await supabase.from('contract_cases').delete().eq('id', caseId)
+      const { error: caseErr } = await supabase.from('contract_cases').delete().eq('id', caseId)
+      if (caseErr) throw caseErr
     }
   }
 
@@ -286,9 +288,23 @@ export async function attachSignedPdfAction(
   pdfPath: string,
   filename: string,
   pdfHash: string,
+  firmaTrabajador?: string,
 ) {
   await requireRole('coordinator')
   const supabase = await createClient()
-  await attachSignedPdf(supabase, documentId, pdfPath, filename, pdfHash)
+  await attachSignedPdf(supabase, documentId, pdfPath, filename, pdfHash, firmaTrabajador)
+  revalidatePath('/contracts')
+}
+
+export async function attachRepresentativeSignatureAction(
+  documentId: string,
+  pdfPath: string,
+  filename: string,
+  pdfHash: string,
+  firmaRepresentante: string,
+) {
+  await requireRole('supervisor')
+  const supabase = await createClient()
+  await attachRepresentativeSignature(supabase, documentId, pdfPath, filename, pdfHash, firmaRepresentante)
   revalidatePath('/contracts')
 }

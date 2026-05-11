@@ -4,19 +4,20 @@
 
 > Actualizar al cerrar cada sesión. Para detalles, ver las secciones de fase correspondientes abajo.
 
-- **Fase actual:** Phase 15 ✅ — mergeada a main (2026-04-18)
-- **Último cambio importante:** Employee leaves + en_licencia vigency override + contract creation mode split + ciudad_cedula en PDF
+- **Fase actual:** Phase 15.x ✅ + Phase 16 en progreso (2026-05-11)
+- **Último cambio importante:** Firma digital del representante legal — rol `supervisor` (migration 0017), `firma_trabajador` + `firma_representante` en `contract_documents` (migration 0018), PDF dual-firma, dashboard y lista de contratos con indicadores de firma pendiente. NDs 53–56. También: Helvetica 11pt en PDFs, `ciudad_cedula` en formularios y contratos, `forma_pago` texto actualizado.
 - **Pendientes inmediatos:**
-  - ⏳ Registrar contrato 2025 de Laura Angélica Ramírez + crear su licencia de maternidad en la plataforma
-  - ⏳ Definir y arrancar Phase 16
+  - ⏳ Invitar a Dora Patricia con rol `supervisor` desde `/admin`
+  - ⏳ Probar flujo dual-firma en producción
+  - ⏳ Registrar contrato 2025 de Laura Angélica Ramírez + crear su licencia de maternidad
 - **Bugs abiertos conocidos:** ninguno
-- **Siguiente milestone:** Phase 16 (por definir con el usuario)
+- **Siguiente milestone:** Completar Phase 16 (features por definir con el usuario)
 - **⚠️ Infraestructura:** MCP Supabase apunta a `ukzccqogkbfdtymmgavj`; la app usa `qolnrtoznrgiedyhffbn`. Las migraciones SQL deben aplicarse manualmente en el Dashboard del proyecto correcto.
 
 ---
 
-> **Last updated:** 2026-04-18
-> **Status:** Phase 0 ✅ | Phase 1 ✅ | Phase 2 ✅ | Phase 3 ✅ | Phase 4 ✅ | Phase 5 ✅ | Phase 6 ✅ | Phase 7 ✅ | Phase 8 ✅ | Phase 9 ✅ | Phase 10 ✅ | Phase 11 ✅ | Phase 12 ✅ | Phase 12.x hotfixes ✅ | Phase 13 ✅ | Phase 14 ✅ | Phase 15 ✅
+> **Last updated:** 2026-05-11
+> **Status:** Phase 0 ✅ | Phase 1 ✅ | Phase 2 ✅ | Phase 3 ✅ | Phase 4 ✅ | Phase 5 ✅ | Phase 6 ✅ | Phase 7 ✅ | Phase 8 ✅ | Phase 9 ✅ | Phase 10 ✅ | Phase 11 ✅ | Phase 12 ✅ | Phase 12.x hotfixes ✅ | Phase 13 ✅ | Phase 14 ✅ | Phase 15 ✅ | Phase 15.x cleanup ✅ | Phase 16 🔄
 
 ## Stack
 

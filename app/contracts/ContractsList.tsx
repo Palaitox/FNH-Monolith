@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { FileText, CheckSquare, Clock, GitBranch, CalendarClock, ChevronDown, ChevronRight } from 'lucide-react'
+import { FileText, CheckSquare, Clock, GitBranch, CalendarClock, ChevronDown, ChevronRight, Pen } from 'lucide-react'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -23,6 +23,8 @@ export interface CaseGroup {
     fecha_inicio: string | null
     estado: string
     generated_at: string
+    firma_trabajador: string | null
+    firma_representante: string | null
   }[]
 }
 
@@ -350,6 +352,11 @@ function CaseCard({
                 ) : (
                   <span className="inline-flex items-center gap-1 font-mono text-xs text-amber-400">
                     <Clock className="h-3 w-3" /><span className="hidden sm:inline">Pendiente</span>
+                  </span>
+                )}
+                {doc.estado === 'signed' && doc.firma_trabajador && !doc.firma_representante && (role === 'supervisor' || role === 'admin') && (
+                  <span className="hidden sm:inline-flex items-center gap-1 font-mono text-xs text-violet-400 bg-violet-500/10 border border-violet-500/20 rounded-full px-2 py-0.5">
+                    <Pen className="h-3 w-3" />Falta firma rep.
                   </span>
                 )}
                 <Link href={`/contracts/${doc.id}`} className="text-xs text-muted-foreground hover:text-primary transition-colors ml-2">

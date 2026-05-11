@@ -2,9 +2,26 @@
 
 import { createClient } from '@/lib/server'
 import { requireRole } from '@/app/(shared)/lib/auth'
-import { getEmployeeLeaves, createLeave, closeLeave } from '@/app/(shared)/lib/db'
+import { getEmployeeLeaves, createLeave, closeLeave, getActiveLeavesMap, getEmployees } from '@/app/(shared)/lib/db'
 import { revalidatePath } from 'next/cache'
 import type { LeaveType, EmployeeLeave } from '@/app/(shared)/lib/employee-types'
+
+export async function getAllActiveLeavesAction(): Promise<
+  Array<{ leave: EmployeeLeave; employeeId: string; employeeName: string }>
+> {
+  const supabase = await createClient()
+  const [leavesMap, employees] = await Promise.all([
+    getActiveLeavesMap(supabase),
+    getEmployees(supabase),
+  ])
+  const empMap = new Map(employees.map((e) => [e.id, e]))
+  const result: Array<{ leave: EmployeeLeave; employeeId: string; employeeName: string }> = []
+  for (const [empId, leave] of leavesMap) {
+    const emp = empMap.get(empId)
+    if (emp) result.push({ leave, employeeId: empId, employeeName: emp.full_name })
+  }
+  return result.sort((a, b) => a.employeeName.localeCompare(b.employeeName, 'es'))
+}
 
 export async function getEmployeeLeavesAction(employeeId: string): Promise<EmployeeLeave[]> {
   const supabase = await createClient()

@@ -27,8 +27,10 @@ export interface ContractVars {
   anio_preaviso: string
   duracion_dias_texto: string
   valor_total_contrato: string
-  /** Base64 PNG data URL of the captured signature. Undefined = show empty placeholder. */
+  /** Base64 PNG data URL of the worker's captured signature. Undefined = show empty placeholder. */
   firma?: string
+  /** Base64 PNG data URL of the legal representative's signature. Undefined = show empty placeholder. */
+  firma_representante?: string
   /** Employee's jornada label for Otro Sí title (e.g. "JORNADA COMPLETA") */
   trabajador_jornada?: string
 }

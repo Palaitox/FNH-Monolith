@@ -86,7 +86,9 @@ export async function getUserClaims() {
 /**
  * Returns the user's role from public.users, or null.
  */
-export async function getUserRole(): Promise<'admin' | 'coordinator' | 'viewer' | null> {
+export type UserRole = 'admin' | 'supervisor' | 'coordinator' | 'viewer'
+
+export async function getUserRole(): Promise<UserRole | null> {
   const claims = await getUserClaims()
   if (!claims) return null
 
@@ -98,10 +100,15 @@ export async function getUserRole(): Promise<'admin' | 'coordinator' | 'viewer' 
     .is('deactivated_at', null)
     .maybeSingle()
 
-  return (data?.role as 'admin' | 'coordinator' | 'viewer') ?? null
+  return (data?.role as UserRole) ?? null
 }
 
-const ROLE_HIERARCHY: Record<string, number> = { viewer: 0, coordinator: 1, admin: 2 }
+const ROLE_HIERARCHY: Record<UserRole, number> = {
+  viewer:      0,
+  coordinator: 1,
+  supervisor:  2,
+  admin:       3,
+}
 
 /**
  * Throws if the authenticated user's role is below `minimum`.
@@ -109,7 +116,7 @@ const ROLE_HIERARCHY: Record<string, number> = { viewer: 0, coordinator: 1, admi
  *
  * @throws Error('Unauthorized') — caught by Next.js and surfaced as a server error.
  */
-export async function requireRole(minimum: 'viewer' | 'coordinator' | 'admin'): Promise<void> {
+export async function requireRole(minimum: UserRole): Promise<void> {
   const role = await getUserRole()
   if (role === null || ROLE_HIERARCHY[role] < ROLE_HIERARCHY[minimum]) {
     throw new Error(`Unauthorized: requires '${minimum}' role or higher`)

@@ -1,8 +1,7 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import { listAllEmployees } from '@/app/employees/actions/employees'
 import type { Employee, JornadaLaboral } from '@/app/employees/types'
 
 const labelClass = 'text-xs font-medium uppercase tracking-wide text-muted-foreground'
@@ -21,6 +20,15 @@ const JORNADA_COLORS: Record<JornadaLaboral, string> = {
   termino_indefinido: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20',
 }
 
+function missingProfileFields(e: Employee): string[] {
+  const missing: string[] = []
+  if (!e.ciudad_cedula) missing.push('ciudad CC')
+  if (!e.telefono) missing.push('teléfono')
+  if (!e.correo) missing.push('correo')
+  if (!e.salario_base) missing.push('salario')
+  return missing
+}
+
 function formatCOP(value: number | null): string {
   if (value === null || value === 0) return '—'
   return new Intl.NumberFormat('es-CO', {
@@ -33,21 +41,13 @@ function formatCOP(value: number | null): string {
 
 interface EmployeesListProps {
   role: string | null
+  employees: Employee[]
 }
 
-export default function EmployeesList({ role }: EmployeesListProps) {
-  const [employees, setEmployees] = useState<Employee[]>([])
-  const [loading, setLoading] = useState(true)
+export default function EmployeesList({ role, employees }: EmployeesListProps) {
   const [search, setSearch] = useState('')
   const [jornadaFilter, setJornadaFilter] = useState<JornadaLaboral | ''>('')
   const [showInactive, setShowInactive] = useState(false)
-
-  useEffect(() => {
-    listAllEmployees().then((data) => {
-      setEmployees(data)
-      setLoading(false)
-    })
-  }, [])
 
   const filtered = useMemo(() => {
     const term = search.toLowerCase()
@@ -97,22 +97,20 @@ export default function EmployeesList({ role }: EmployeesListProps) {
       </div>
 
       {/* Stats */}
-      {!loading && (
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-          {[
-            { label: 'Activos', value: active.length },
-            { label: 'Tiempo completo', value: byJornada('tiempo_completo') },
-            { label: 'Medio tiempo', value: byJornada('medio_tiempo') },
-            { label: 'Prestación', value: byJornada('prestacion_servicios') },
-            { label: 'Indefinido', value: byJornada('termino_indefinido') },
-          ].map(({ label, value }) => (
-            <div key={label} className="rounded-lg border border-border bg-card p-4">
-              <p className={labelClass}>{label}</p>
-              <p className="text-2xl font-semibold mt-1">{value}</p>
-            </div>
-          ))}
-        </div>
-      )}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+        {[
+          { label: 'Activos', value: active.length },
+          { label: 'Tiempo completo', value: byJornada('tiempo_completo') },
+          { label: 'Medio tiempo', value: byJornada('medio_tiempo') },
+          { label: 'Prestación', value: byJornada('prestacion_servicios') },
+          { label: 'Indefinido', value: byJornada('termino_indefinido') },
+        ].map(({ label, value }) => (
+          <div key={label} className="rounded-lg border border-border bg-card p-4">
+            <p className={labelClass}>{label}</p>
+            <p className="text-2xl font-semibold mt-1">{value}</p>
+          </div>
+        ))}
+      </div>
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
@@ -160,44 +158,51 @@ export default function EmployeesList({ role }: EmployeesListProps) {
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {loading ? (
-              <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground text-sm">
-                  Cargando…
-                </td>
-              </tr>
-            ) : filtered.length === 0 ? (
+            {filtered.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground text-sm">
                   {search || jornadaFilter ? 'Sin resultados para ese filtro.' : showInactive ? 'No hay empleados inactivos.' : 'No hay empleados activos.'}
                 </td>
               </tr>
             ) : (
-              filtered.map((e) => (
-                <tr key={e.id} className="hover:bg-muted/20 transition-colors">
-                  <td className="px-4 py-3 font-medium">{e.full_name}</td>
-                  <td className="px-4 py-3 font-mono text-muted-foreground hidden sm:table-cell">{e.cedula}</td>
-                  <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">{e.cargo ?? '—'}</td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`inline-flex items-center rounded-full border px-2 py-0.5 font-mono text-xs ${JORNADA_COLORS[e.jornada_laboral]}`}
-                    >
-                      {JORNADA_LABELS[e.jornada_laboral]}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right font-mono text-muted-foreground hidden sm:table-cell">
-                    {formatCOP(e.salario_base)}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <Link
-                      href={`/employees/${e.id}`}
-                      className="text-muted-foreground hover:text-primary transition-colors"
-                    >
-                      Ver →
-                    </Link>
-                  </td>
-                </tr>
-              ))
+              filtered.map((e) => {
+                const missing = missingProfileFields(e)
+                return (
+                  <tr key={e.id} className="hover:bg-muted/20 transition-colors">
+                    <td className="px-4 py-3 font-medium">
+                      <span className="inline-flex items-center gap-2">
+                        {e.full_name}
+                        {missing.length > 0 && (
+                          <span
+                            title={`Perfil incompleto: falta ${missing.join(', ')}`}
+                            className="inline-block h-2 w-2 rounded-full bg-amber-400 shrink-0"
+                          />
+                        )}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 font-mono text-muted-foreground hidden sm:table-cell">{e.cedula}</td>
+                    <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">{e.cargo ?? '—'}</td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-flex items-center rounded-full border px-2 py-0.5 font-mono text-xs ${JORNADA_COLORS[e.jornada_laboral]}`}
+                      >
+                        {JORNADA_LABELS[e.jornada_laboral]}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono text-muted-foreground hidden sm:table-cell">
+                      {formatCOP(e.salario_base)}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <Link
+                        href={`/employees/${e.id}`}
+                        className="text-muted-foreground hover:text-primary transition-colors"
+                      >
+                        Ver →
+                      </Link>
+                    </td>
+                  </tr>
+                )
+              })
             )}
           </tbody>
         </table>

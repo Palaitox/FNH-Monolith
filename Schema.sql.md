@@ -1,13 +1,13 @@
 # FNH Monolith — Authoritative Database Schema
 
-> **Last updated:** 2026-04-16
-> **Applied migrations:** 0001_initial.sql, 0002_extend_contracts.sql, 0003_seed_document_requirements.sql, 0004_rls.sql, 0005_storage_policies.sql, 0006_update_vehicle_requirements.sql, 0007_servitrans_driver_requirements.sql, 0008_employees_softdelete.sql, 0009_users_softdelete.sql, 0010_drop_contract_templates.sql, 0011_contract_cases.sql, 0015_employee_ciudad_cedula.sql, 0016_employee_leaves.sql
+> **Last updated:** 2026-04-20
+> **Applied migrations:** 0001–0017 (see Migration History below)
 > **Source of truth:** Supabase Dashboard → Table Editor
 > This file must be kept in sync with every new migration.
 
 ---
 
-## Complete Schema (post-migration-0011)
+## Complete Schema (post-migration-0017)
 
 ```sql
 -- ============================================================
@@ -17,7 +17,7 @@
 create table users (
   id             uuid        primary key references auth.users,
   name           text        not null,
-  role           text        not null check (role in ('admin', 'coordinator', 'viewer')),
+  role           text        not null check (role in ('admin', 'coordinator', 'supervisor', 'viewer')),  -- 'supervisor' added by migration 0017
   email          text,                    -- stored at invite time (migration 0009, ND-32)
   deactivated_at timestamptz              -- soft-delete (migration 0009, ND-32)
 );
@@ -48,37 +48,50 @@ create table employees (
   salario_base       numeric(12,2),
   auxilio_transporte numeric(12,2) not null default 0,
   jornada_laboral    text         not null default 'tiempo_completo'
-                     check (jornada_laboral in ('tiempo_completo', 'medio_tiempo', 'prestacion_servicios')),
+                     check (jornada_laboral in ('tiempo_completo', 'medio_tiempo', 'prestacion_servicios', 'termino_indefinido')),  -- 4th value added by migration 0012
   deactivated_at     timestamptz,           -- soft-delete (migration 0008, ND-29)
   created_at         timestamptz  not null default now()
 );
 
-create table contracts (
+-- contract_templates table DROPPED by migration 0010 (ND-35). Old `contracts` table
+-- DROPPED by migration 0011 (ND-45) and replaced by the two-level model below.
+
+-- Expediente contractual — groups one employment cycle (initial + amendments)
+create table contract_cases (
   id               uuid        primary key default gen_random_uuid(),
   employee_id      uuid        not null references employees(id),
-  template_id      uuid,       -- FK dropped and column made nullable in migration 0010 (ND-35)
-  -- status renamed to estado in migration 0002
-  estado           text        not null check (estado in ('generated', 'signed')),
-  -- Legacy fields added in migration 0002
-  contract_number  text,       -- format: YYYY-NNN (e.g. 2026-001)
-  tipo_contrato    text,
-  fecha_inicio     date,
-  fecha_terminacion date,
-  forma_pago       text,
-  -- Storage paths
-  docx_path        text,
-  pdf_path         text,
-  pdf_hash         text,       -- SHA-256 hex of stored PDF
-  pdf_filename     text,
-  generated_at     timestamptz not null default now(),
-  signed_at        timestamptz
+  case_number      text        not null,   -- format: YYYY-NNN, claimed atomically by DB function
+  status           text        not null default 'active'
+                               check (status in ('active', 'closed')),
+  current_end_date date,                   -- updated by triggers when a signed doc modifies term
+  created_at       timestamptz not null default now()
 );
 
--- Audit log for contract actions (upload, replace, remove, sign)
+-- Each signable document inside a case (INICIAL, PRORROGA, OTRO_SI, TERMINACION)
+create table contract_documents (
+  id                uuid        primary key default gen_random_uuid(),
+  case_id           uuid        not null references contract_cases(id) on delete cascade,
+  document_type     text        not null
+                                check (document_type in ('INICIAL', 'PRORROGA', 'OTRO_SI', 'TERMINACION')),
+  tipo_contrato     text,       -- only meaningful for INICIAL documents
+  fecha_inicio      date,
+  fecha_terminacion date,
+  forma_pago        text,
+  affects_term      boolean     not null default false,  -- does this doc modify the contract end date?
+  estado            text        not null default 'generated'
+                                check (estado in ('generated', 'signed')),
+  pdf_path          text,
+  pdf_hash          text,       -- SHA-256 hex of stored PDF
+  pdf_filename      text,
+  generated_at      timestamptz not null default now(),
+  signed_at         timestamptz
+);
+
+-- Audit log for document actions (upload, replace, remove, sign)
 -- user_id is a soft reference (no FK) — audit records survive user deletion
 create table contract_audit_logs (
   id          uuid        primary key default gen_random_uuid(),
-  contract_id uuid        not null references public.contracts(id) on delete cascade,
+  document_id uuid        not null references contract_documents(id) on delete cascade,  -- rewired by migration 0011
   user_id     uuid,       -- soft ref: no FK, survives user deletion
   user_email  text,
   action      text        not null,
@@ -221,14 +234,15 @@ create index idx_notification_retry
 create index idx_req_effectivity
   on document_requirements (category, effective_from, effective_to);
 
--- Contract number uniqueness (partial — NULL contract_number is allowed)
-create unique index idx_contracts_number
-  on contracts (contract_number)
-  where contract_number is not null;
+-- Contract cases: unique case number; employee+status lookup
+create unique index idx_case_number    on contract_cases (case_number);
+create        index idx_cases_employee on contract_cases (employee_id, status);
 
--- Audit log lookup by contract
-create index idx_audit_contract
-  on contract_audit_logs (contract_id, created_at desc);
+-- Contract documents: lookup by case
+create index idx_documents_case on contract_documents (case_id, generated_at desc);
+
+-- Audit log lookup by document (rewired from contract_id in migration 0011)
+create index idx_audit_document on contract_audit_logs (document_id, created_at desc);
 
 -- Active employees fast lookup (partial index on active set)
 create index idx_employees_active
@@ -239,6 +253,15 @@ create index idx_employees_active
 create index idx_users_active
   on users (name)
   where deactivated_at is null;
+
+-- ============================================================
+-- DB FUNCTIONS (migration 0012 + 0014)
+-- ============================================================
+
+-- peek_next_case_number() — read-only preview for UI; fills lowest gap first
+-- claim_next_case_number() — atomic claim with pg_advisory_xact_lock; used by createCase()
+-- get_my_role() — SECURITY DEFINER; reads current user's role from public.users (ND-16)
+-- (Full function bodies are in the migration files; not repeated here.)
 
 -- ============================================================
 -- CONTRACTS MODULE — EMPLOYEE LEAVES (migration 0016)
@@ -259,6 +282,7 @@ create table employee_leaves (
   created_at        timestamptz not null default now()
 );
 -- RLS: SELECT open to all authenticated; INSERT/UPDATE/DELETE restricted to admin + coordinator
+
 ```
 
 ---
@@ -278,5 +302,9 @@ create table employee_leaves (
 | `0009_users_softdelete.sql` | 2026-04-03 | ADD COLUMN `email text` and `deactivated_at timestamptz` to `public.users`; CREATE partial index `idx_users_active`; CREATE POLICY `users_delete_admin` (ND-32) |
 | `0010_drop_contract_templates.sql` | 2026-04-03 | DROP FK `contracts_template_id_fkey`; ALTER `contracts.template_id` to nullable; DROP TABLE `contract_templates` (ND-35) |
 | `0011_contract_cases.sql` | 2026-04-09 | DROP TABLE `contracts`; CREATE `contract_cases` (expediente) + `contract_documents` (each signable piece); ALTER `contract_audit_logs`: replace `contract_id` with `document_id`; RLS for new tables (ND-45) |
+| `0012_production_fixes.sql` | 2026-04-09 | ADD `termino_indefinido` to `jornada_laboral` CHECK; CREATE `peek_next_case_number()` + `claim_next_case_number()` RPCs; CREATE `system_logs` table; CREATE `contracts` Storage bucket |
+| `0013_case_counter_sync.sql` | 2026-04-09 | ADD trigger `trg_sync_case_counter` on `contract_cases` DELETE to keep config counter in sync (superseded by 0014) |
+| `0014_case_number_gap_fill.sql` | 2026-04-09 | DROP sync trigger; replace RPCs with gap-filling logic (fills lowest gap before MAX+1); uses `pg_advisory_xact_lock` for concurrency |
 | `0015_employee_ciudad_cedula.sql` | 2026-04-16 | ADD COLUMN `ciudad_cedula text` to `employees`; used in PDF contract generation to print "expedida en [city]" |
 | `0016_employee_leaves.sql` | 2026-04-16 | CREATE `employee_leaves` table; tracks maternity/disability/other protected leave; drives `en_licencia` vigency override in contracts module |
+| `0017_supervisor_role.sql` | 2026-04-20 | ADD `supervisor` to `users.role` CHECK constraint; sits between coordinator and admin |
