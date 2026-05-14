@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { FileText, CheckSquare, Clock, GitBranch, CalendarClock, ChevronDown, ChevronRight, Pen } from 'lucide-react'
+import { FileText, CheckSquare, Clock, GitBranch, CalendarClock, ChevronDown, ChevronRight, Pen, AlertTriangle } from 'lucide-react'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -47,20 +47,24 @@ const DOCTYPE_COLOR: Record<string, string> = {
 const VIGENCY_BORDER: Record<VigencyStatus, string> = {
   vigente:     'border-l-2 border-l-emerald-500/60',
   por_vencer:  'border-l-2 border-l-amber-500/70',
-  vencido:     'border-l-2 border-l-border',
+  vencido:     'border-l-2 border-l-rose-500/80',
   indefinido:  'border-l-2 border-l-sky-500/50',
   no_iniciado: 'border-l-2 border-l-border',
   en_licencia: 'border-l-2 border-l-violet-500/60',
 }
 
-// Vigency statuses that start expanded — the rest start collapsed
+// Within-year sort: expired first (alert), then por_vencer, then the rest
+const URGENCY_ORDER: Record<VigencyStatus, number> = {
+  vencido: 0, por_vencer: 1, vigente: 2, en_licencia: 3, indefinido: 4, no_iniciado: 5,
+}
+
+// These statuses start with their case card expanded
 const EXPANDED_STATUSES = new Set<VigencyStatus>(['vigente', 'por_vencer', 'indefinido', 'en_licencia'])
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 function fmtDate(iso: string | null | undefined): string {
   if (!iso) return ''
-  // T12:00:00Z avoids off-by-one when the local timezone is behind UTC
   return new Date(iso + 'T12:00:00Z').toLocaleDateString('es-CO', {
     day: 'numeric', month: 'short', year: 'numeric',
   })
@@ -73,7 +77,11 @@ function buildDateRange(group: CaseGroup): string {
   return end ? `${start} → ${end}` : `${start} →`
 }
 
-// ── Sub-components ─────────────────────────────────────────────────────────
+function caseYear(caseNumber: string): string {
+  return caseNumber.split('-')[0] ?? '—'
+}
+
+// ── VigencyBadge ──────────────────────────────────────────────────────────
 
 function VigencyBadge({ status, daysLeft }: { status: VigencyStatus; daysLeft: number | null }) {
   if (status === 'vigente') return (
@@ -95,7 +103,8 @@ function VigencyBadge({ status, daysLeft }: { status: VigencyStatus; daysLeft: n
     </span>
   )
   if (status === 'vencido') return (
-    <span className="hidden sm:inline-flex items-center gap-1 font-mono text-xs text-muted-foreground bg-muted/30 border border-border rounded-full px-2 py-0.5">
+    <span className="hidden sm:inline-flex items-center gap-1 font-mono text-xs text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-full px-2 py-0.5">
+      <AlertTriangle className="h-3 w-3" />
       Vencido
     </span>
   )
@@ -106,6 +115,195 @@ function VigencyBadge({ status, daysLeft }: { status: VigencyStatus; daysLeft: n
     </span>
   )
   return null
+}
+
+// ── YearGroup ─────────────────────────────────────────────────────────────
+
+function YearGroup({
+  year,
+  cases,
+  role,
+  isOpen,
+  onToggle,
+  expandedCases,
+  onToggleCase,
+}: {
+  year: string
+  cases: CaseGroup[]
+  role: string | null
+  isOpen: boolean
+  onToggle: () => void
+  expandedCases: Set<string>
+  onToggleCase: (id: string) => void
+}) {
+  const vencidos  = cases.filter((c) => c.vigency === 'vencido').length
+  const porVencer = cases.filter((c) => c.vigency === 'por_vencer').length
+
+  return (
+    <div className="space-y-2">
+      {/* Year header */}
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg border border-border bg-muted/20 hover:bg-muted/40 transition-colors text-left"
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <ChevronDown
+            className={`h-3.5 w-3.5 text-muted-foreground shrink-0 transition-transform duration-200 ${isOpen ? '' : '-rotate-90'}`}
+          />
+          <span className="font-mono text-sm font-semibold">Contratos {year}</span>
+          <span className="font-mono text-xs text-muted-foreground">
+            {cases.length} expediente{cases.length !== 1 ? 's' : ''}
+          </span>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {vencidos > 0 && (
+            <span className="inline-flex items-center gap-1 font-mono text-xs text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-full px-2 py-0.5">
+              <AlertTriangle className="h-3 w-3" />
+              {vencidos} vencido{vencidos !== 1 ? 's' : ''}
+            </span>
+          )}
+          {porVencer > 0 && (
+            <span className="hidden sm:inline-flex items-center gap-1 font-mono text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-full px-2 py-0.5">
+              <CalendarClock className="h-3 w-3" />
+              {porVencer} por vencer
+            </span>
+          )}
+        </div>
+      </button>
+
+      {/* Cases */}
+      {isOpen && (
+        <div className="space-y-2 pl-1">
+          {cases.map((group) => (
+            <CaseCard
+              key={group.caseId}
+              group={group}
+              role={role}
+              expanded={expandedCases.has(group.caseId)}
+              onToggle={() => onToggleCase(group.caseId)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── CaseCard ──────────────────────────────────────────────────────────────
+
+function CaseCard({
+  group,
+  role,
+  expanded,
+  onToggle,
+}: {
+  group: CaseGroup
+  role: string | null
+  expanded: boolean
+  onToggle: () => void
+}) {
+  const anyPending = group.docs.some((d) => d.estado === 'generated')
+  const isExpired  = group.vigency === 'vencido'
+  const dateRange  = buildDateRange(group)
+
+  return (
+    <div className={`rounded-lg border overflow-hidden ${VIGENCY_BORDER[group.vigency]} ${
+      isExpired ? 'border-rose-500/40 bg-card' : 'border-border bg-card'
+    }`}>
+      {/* Header */}
+      <div className={`flex items-center justify-between gap-3 px-4 py-3 border-b ${
+        isExpired ? 'border-rose-500/20 bg-muted/30' : 'border-border bg-muted/30'
+      }`}>
+        <button
+          onClick={onToggle}
+          className="flex items-center gap-2.5 min-w-0 flex-1 text-left hover:opacity-80 transition-opacity"
+        >
+          {expanded
+            ? <ChevronDown  className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+          }
+          <GitBranch className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          <span className="font-mono text-xs font-medium shrink-0 text-muted-foreground">
+            {group.caseNumber}
+          </span>
+          <span className="text-sm font-medium truncate">
+            {group.employeeName}
+          </span>
+          {!expanded && dateRange && (
+            <span className="hidden sm:inline font-mono text-xs text-muted-foreground shrink-0">
+              · {dateRange}
+            </span>
+          )}
+        </button>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <VigencyBadge status={group.vigency} daysLeft={group.daysLeft} />
+          {anyPending && (
+            <span className="hidden sm:inline-flex items-center gap-1 font-mono text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-full px-2 py-0.5">
+              <Clock className="h-3 w-3" />
+              {group.docs.filter((d) => d.estado === 'generated').length} pendiente{group.docs.filter((d) => d.estado === 'generated').length !== 1 ? 's' : ''}
+            </span>
+          )}
+          {!expanded && (
+            <span className="hidden sm:inline-flex font-mono text-xs text-muted-foreground border border-border rounded-full px-2 py-0.5">
+              {group.docs.length} doc{group.docs.length !== 1 ? 's' : ''}
+            </span>
+          )}
+          {role !== 'viewer' && group.employeeId && !isExpired && group.docs.some((d) => d.document_type === 'INICIAL') && (
+            <Link
+              href={`/contracts/new?employee_id=${group.employeeId}&case_id=${group.caseId}`}
+              className="text-xs text-muted-foreground hover:text-foreground border border-border rounded px-2 py-1 hover:bg-muted/30 transition-colors"
+            >
+              + Agregar
+            </Link>
+          )}
+        </div>
+      </div>
+
+      {/* Documents */}
+      {expanded && (
+        <div className="divide-y divide-border/60">
+          {group.docs.map((doc, idx) => {
+            const isLast = idx === group.docs.length - 1
+            return (
+              <div key={doc.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/10 transition-colors">
+                <div className="flex flex-col items-center self-stretch shrink-0 w-4">
+                  <div className="w-px flex-1 bg-border/60" />
+                  <div className="w-2 h-px bg-border/60" />
+                  {!isLast && <div className="w-px flex-1 bg-border/60" />}
+                </div>
+                <span className={`shrink-0 inline-flex items-center rounded border px-1.5 py-0.5 font-mono text-xs ${DOCTYPE_COLOR[doc.document_type] ?? 'text-muted-foreground border-border'}`}>
+                  {DOCTYPE_LABEL[doc.document_type] ?? doc.document_type}
+                </span>
+                <span className="font-mono text-xs text-muted-foreground shrink-0 hidden sm:block">
+                  {doc.fecha_inicio ?? '—'}
+                </span>
+                <span className="flex-1" />
+                {doc.estado === 'signed' ? (
+                  <span className="inline-flex items-center gap-1 font-mono text-xs text-emerald-400">
+                    <CheckSquare className="h-3 w-3" /><span className="hidden sm:inline">Firmado</span>
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 font-mono text-xs text-amber-400">
+                    <Clock className="h-3 w-3" /><span className="hidden sm:inline">Pendiente</span>
+                  </span>
+                )}
+                {doc.estado === 'signed' && doc.firma_trabajador && !doc.firma_representante && (role === 'supervisor' || role === 'admin') && (
+                  <span className="hidden sm:inline-flex items-center gap-1 font-mono text-xs text-violet-400 bg-violet-500/10 border border-violet-500/20 rounded-full px-2 py-0.5">
+                    <Pen className="h-3 w-3" />Falta firma rep.
+                  </span>
+                )}
+                <Link href={`/contracts/${doc.id}`} className="text-xs text-muted-foreground hover:text-primary transition-colors ml-2">
+                  Ver →
+                </Link>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
 }
 
 // ── Main component ─────────────────────────────────────────────────────────
@@ -120,9 +318,11 @@ export default function ContractsList({ cases, totalDocs, role }: ContractsListP
   const [search, setSearch] = useState('')
   const [vigencyFilter, setVigencyFilter] = useState<VigencyStatus | ''>('')
   const [pendingOnly, setPendingOnly] = useState(false)
+  const [repPendingOnly, setRepPendingOnly] = useState(false)
 
-  // ── Expand/collapse state ─────────────────────────────────────────────────
+  const currentYear = new Date().getFullYear().toString()
 
+  // ── Case-level expand/collapse ────────────────────────────────────────
   const [expandedCases, setExpandedCases] = useState<Set<string>>(
     () => new Set(cases.filter((c) => EXPANDED_STATUSES.has(c.vigency)).map((c) => c.caseId))
   )
@@ -135,35 +335,70 @@ export default function ContractsList({ cases, totalDocs, role }: ContractsListP
     })
   }, [])
 
-  const filtered = useMemo(() => {
+  // ── Year-level expand/collapse ────────────────────────────────────────
+  const [expandedYears, setExpandedYears] = useState<Set<string>>(() => new Set())
+
+  const toggleYear = useCallback((year: string) => {
+    setExpandedYears((prev) => {
+      const next = new Set(prev)
+      if (next.has(year)) { next.delete(year) } else { next.add(year) }
+      return next
+    })
+  }, [])
+
+  // ── Year groups: filter → group by year → sort within year ────────────
+  const yearGroups = useMemo(() => {
     const term = search.toLowerCase().trim()
-    return cases.filter((g) => {
+    const filtered = cases.filter((g) => {
       if (term && !g.employeeName.toLowerCase().includes(term)) return false
       if (vigencyFilter && g.vigency !== vigencyFilter) return false
       if (pendingOnly && !g.docs.some((d) => d.estado === 'generated')) return false
+      if (repPendingOnly && !g.docs.some((d) => d.firma_trabajador && !d.firma_representante)) return false
       return true
     })
-  }, [cases, search, vigencyFilter, pendingOnly])
 
-  const allExpanded = filtered.length > 0 && filtered.every((c) => expandedCases.has(c.caseId))
-
-  const toggleAll = useCallback(() => {
-    setExpandedCases(allExpanded ? new Set() : new Set(filtered.map((c) => c.caseId)))
-  }, [allExpanded, filtered])
-
-  // Auto-expand filtered results when any filter is active.
-  // filtered is memoized, so its reference only changes when cases/search/filter change —
-  // including it in deps is safe and avoids the exhaustive-deps warning.
-  useEffect(() => {
-    if (search || vigencyFilter || pendingOnly) {
-      setExpandedCases((prev) => new Set([...prev, ...filtered.map((c) => c.caseId)]))
+    const byYear = new Map<string, CaseGroup[]>()
+    for (const c of filtered) {
+      const year = caseYear(c.caseNumber)
+      if (!byYear.has(year)) byYear.set(year, [])
+      byYear.get(year)!.push(c)
     }
-  }, [search, vigencyFilter, pendingOnly, filtered])
 
-  // ── Derived stats ─────────────────────────────────────────────────────────
+    for (const yearCases of byYear.values()) {
+      yearCases.sort((a, b) => {
+        const ud = URGENCY_ORDER[a.vigency] - URGENCY_ORDER[b.vigency]
+        if (ud !== 0) return ud
+        // Within same status: soonest expiry first, then newest case number
+        if (a.daysLeft !== null && b.daysLeft !== null) return a.daysLeft - b.daysLeft
+        return b.caseNumber.localeCompare(a.caseNumber)
+      })
+    }
 
-  const vigentes   = cases.filter((c) => c.vigency === 'vigente' || c.vigency === 'indefinido' || c.vigency === 'por_vencer' || c.vigency === 'en_licencia').length
+    return Array.from(byYear.entries()).sort(([a], [b]) => b.localeCompare(a))
+  }, [cases, search, vigencyFilter, pendingOnly, repPendingOnly])
+
+  const filteredCount = yearGroups.reduce((sum, [, c]) => sum + c.length, 0)
+  const anyFilter = !!(search || vigencyFilter || pendingOnly || repPendingOnly)
+
+  // When a filter is active: auto-expand matching year groups and cases
+  useEffect(() => {
+    if (anyFilter) {
+      const allFiltered = yearGroups.flatMap(([, c]) => c)
+      setExpandedCases((prev) => new Set([...prev, ...allFiltered.map((c) => c.caseId)]))
+      setExpandedYears((prev) => new Set([...prev, ...yearGroups.map(([y]) => y)]))
+    }
+  }, [anyFilter, yearGroups])
+
+  const allYearsExpanded = yearGroups.length > 0 && yearGroups.every(([y]) => expandedYears.has(y))
+
+  const toggleAllYears = useCallback(() => {
+    setExpandedYears(allYearsExpanded ? new Set() : new Set(yearGroups.map(([y]) => y)))
+  }, [allYearsExpanded, yearGroups])
+
+  // ── Derived stats ─────────────────────────────────────────────────────
+  const vigentes   = cases.filter((c) => ['vigente', 'indefinido', 'por_vencer', 'en_licencia'].includes(c.vigency)).length
   const porVencer  = cases.filter((c) => c.vigency === 'por_vencer').length
+  const vencidos   = cases.filter((c) => c.vigency === 'vencido').length
   const pendientes = cases.filter((c) => c.docs.some((d) => d.estado === 'generated')).length
 
   return (
@@ -171,10 +406,10 @@ export default function ContractsList({ cases, totalDocs, role }: ContractsListP
       {/* Stats row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
         {[
-          { label: 'Expedientes', value: cases.length, color: '' },
-          { label: 'Vigentes', value: vigentes, color: 'text-emerald-400' },
-          { label: 'Por vencer', value: porVencer, color: 'text-amber-400' },
-          { label: 'Pend. firma', value: pendientes, color: 'text-amber-400' },
+          { label: 'Expedientes', value: cases.length,  color: '' },
+          { label: 'Vigentes',    value: vigentes,       color: 'text-emerald-400' },
+          { label: 'Por vencer',  value: porVencer,      color: 'text-amber-400' },
+          { label: 'Pend. firma', value: pendientes,     color: 'text-amber-400' },
         ].map(({ label, value, color }) => (
           <div key={label} className="rounded-lg border border-border bg-card px-4 py-3">
             <p className="text-xs text-muted-foreground">{label}</p>
@@ -212,159 +447,76 @@ export default function ContractsList({ cases, totalDocs, role }: ContractsListP
               : 'border-border text-muted-foreground hover:text-foreground hover:bg-muted/30'
           }`}
         >
-          {pendingOnly ? 'Pendientes de firma' : 'Pendientes de firma'}
-          {pendientes > 0 && !pendingOnly && ` (${pendientes})`}
+          Pend. firma{pendientes > 0 && !pendingOnly ? ` (${pendientes})` : ''}
         </button>
-        {(search || vigencyFilter || pendingOnly) && (
+        {(role === 'supervisor' || role === 'admin') && (
           <button
-            onClick={() => { setSearch(''); setVigencyFilter(''); setPendingOnly(false) }}
+            onClick={() => setRepPendingOnly((v) => !v)}
+            className={`rounded-md border px-3 py-1.5 text-sm transition-colors ${
+              repPendingOnly
+                ? 'border-indigo-400/40 text-indigo-400 bg-indigo-400/10'
+                : 'border-border text-muted-foreground hover:text-foreground hover:bg-muted/30'
+            }`}
+          >
+            Falta firma rep.
+          </button>
+        )}
+        {vencidos > 0 && (
+          <button
+            onClick={() => setVigencyFilter((v) => v === 'vencido' ? '' : 'vencido')}
+            className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm transition-colors ${
+              vigencyFilter === 'vencido'
+                ? 'border-rose-400/40 text-rose-400 bg-rose-400/10'
+                : 'border-rose-500/30 text-rose-400 hover:bg-rose-500/10'
+            }`}
+          >
+            <AlertTriangle className="h-3.5 w-3.5" />
+            Vencidos ({vencidos})
+          </button>
+        )}
+        {anyFilter && (
+          <button
+            onClick={() => { setSearch(''); setVigencyFilter(''); setPendingOnly(false); setRepPendingOnly(false) }}
             className="text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
             Limpiar
           </button>
         )}
         <button
-          onClick={toggleAll}
+          onClick={toggleAllYears}
           className="ml-auto text-xs text-muted-foreground hover:text-foreground border border-border rounded-md px-3 py-1.5 hover:bg-muted/30 transition-colors shrink-0"
         >
-          {allExpanded ? 'Colapsar todo' : 'Expandir todo'}
+          {allYearsExpanded ? 'Colapsar todo' : 'Expandir todo'}
         </button>
       </div>
 
-      {/* List */}
-      {filtered.length === 0 ? (
+      {/* Year groups */}
+      {yearGroups.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border p-12 text-center">
           <FileText className="mx-auto h-8 w-8 text-muted-foreground mb-3" />
           <p className="text-sm text-muted-foreground">
-            {search || vigencyFilter || pendingOnly ? 'Sin resultados para ese filtro.' : 'No hay contratos registrados.'}
+            {anyFilter ? 'Sin resultados para ese filtro.' : 'No hay contratos registrados.'}
           </p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {filtered.map((group) => (
-            <CaseCard
-              key={group.caseId}
-              group={group}
+        <div className="space-y-4">
+          {yearGroups.map(([year, yearCases]) => (
+            <YearGroup
+              key={year}
+              year={year}
+              cases={yearCases}
               role={role}
-              expanded={expandedCases.has(group.caseId)}
-              onToggle={() => toggleCase(group.caseId)}
+              isOpen={expandedYears.has(year)}
+              onToggle={() => toggleYear(year)}
+              expandedCases={expandedCases}
+              onToggleCase={toggleCase}
             />
           ))}
-          {filtered.length < cases.length && (
+          {filteredCount < cases.length && (
             <p className="text-xs text-muted-foreground text-center pt-1">
-              Mostrando {filtered.length} de {cases.length} expedientes
+              Mostrando {filteredCount} de {cases.length} expedientes
             </p>
           )}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── CaseCard ──────────────────────────────────────────────────────────────
-
-function CaseCard({
-  group,
-  role,
-  expanded,
-  onToggle,
-}: {
-  group: CaseGroup
-  role: string | null
-  expanded: boolean
-  onToggle: () => void
-}) {
-  const anyPending = group.docs.some((d) => d.estado === 'generated')
-  const isExpired  = group.vigency === 'vencido'
-  const dateRange  = buildDateRange(group)
-
-  return (
-    <div className={`rounded-lg border border-border bg-card overflow-hidden ${VIGENCY_BORDER[group.vigency]}`}>
-      {/* Header */}
-      <div className={`flex items-center justify-between gap-3 px-4 py-3 border-b border-border ${isExpired ? 'bg-muted/10' : 'bg-muted/30'}`}>
-        {/* Left: toggle button — chevron + identity info */}
-        <button
-          onClick={onToggle}
-          className={`flex items-center gap-2.5 min-w-0 flex-1 text-left hover:opacity-80 transition-opacity ${isExpired ? 'opacity-60' : ''}`}
-        >
-          {expanded
-            ? <ChevronDown  className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-            : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-          }
-          <GitBranch className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-          <span className="font-mono text-xs font-medium text-muted-foreground shrink-0">{group.caseNumber}</span>
-          <span className="text-sm font-medium truncate">{group.employeeName}</span>
-          {!expanded && dateRange && (
-            <span className="hidden sm:inline font-mono text-xs text-muted-foreground shrink-0">
-              · {dateRange}
-            </span>
-          )}
-        </button>
-
-        {/* Right: badges + actions — independent of toggle button */}
-        <div className="flex items-center gap-2 shrink-0">
-          <VigencyBadge status={group.vigency} daysLeft={group.daysLeft} />
-          {anyPending && (
-            <span className="hidden sm:inline-flex items-center gap-1 font-mono text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-full px-2 py-0.5">
-              <Clock className="h-3 w-3" />
-              {group.docs.filter((d) => d.estado === 'generated').length} pendiente{group.docs.filter((d) => d.estado === 'generated').length !== 1 ? 's' : ''}
-            </span>
-          )}
-          {!expanded && (
-            <span className="hidden sm:inline-flex font-mono text-xs text-muted-foreground border border-border rounded-full px-2 py-0.5">
-              {group.docs.length} doc{group.docs.length !== 1 ? 's' : ''}
-            </span>
-          )}
-          {role !== 'viewer' && group.employeeId && !isExpired && group.docs.some((d) => d.document_type === 'INICIAL') && (
-            <Link
-              href={`/contracts/new?employee_id=${group.employeeId}&case_id=${group.caseId}`}
-              className="text-xs text-muted-foreground hover:text-foreground border border-border rounded px-2 py-1 hover:bg-muted/30 transition-colors"
-            >
-              + Agregar
-            </Link>
-          )}
-        </div>
-      </div>
-
-      {/* Documents — only rendered when expanded */}
-      {expanded && (
-        <div className={`divide-y divide-border/60 ${isExpired ? 'opacity-60' : ''}`}>
-          {group.docs.map((doc, idx) => {
-            const isLast = idx === group.docs.length - 1
-            return (
-              <div key={doc.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/10 transition-colors">
-                <div className="flex flex-col items-center self-stretch shrink-0 w-4">
-                  <div className="w-px flex-1 bg-border/60" />
-                  <div className="w-2 h-px bg-border/60" />
-                  {!isLast && <div className="w-px flex-1 bg-border/60" />}
-                </div>
-                <span className={`shrink-0 inline-flex items-center rounded border px-1.5 py-0.5 font-mono text-xs ${DOCTYPE_COLOR[doc.document_type] ?? 'text-muted-foreground border-border'}`}>
-                  {DOCTYPE_LABEL[doc.document_type] ?? doc.document_type}
-                </span>
-                <span className="font-mono text-xs text-muted-foreground shrink-0 hidden sm:block">
-                  {doc.fecha_inicio ?? '—'}
-                </span>
-                <span className="flex-1" />
-                {doc.estado === 'signed' ? (
-                  <span className="inline-flex items-center gap-1 font-mono text-xs text-emerald-400">
-                    <CheckSquare className="h-3 w-3" /><span className="hidden sm:inline">Firmado</span>
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 font-mono text-xs text-amber-400">
-                    <Clock className="h-3 w-3" /><span className="hidden sm:inline">Pendiente</span>
-                  </span>
-                )}
-                {doc.estado === 'signed' && doc.firma_trabajador && !doc.firma_representante && (role === 'supervisor' || role === 'admin') && (
-                  <span className="hidden sm:inline-flex items-center gap-1 font-mono text-xs text-violet-400 bg-violet-500/10 border border-violet-500/20 rounded-full px-2 py-0.5">
-                    <Pen className="h-3 w-3" />Falta firma rep.
-                  </span>
-                )}
-                <Link href={`/contracts/${doc.id}`} className="text-xs text-muted-foreground hover:text-primary transition-colors ml-2">
-                  Ver →
-                </Link>
-              </div>
-            )
-          })}
         </div>
       )}
     </div>

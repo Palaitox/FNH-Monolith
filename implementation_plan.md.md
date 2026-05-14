@@ -4,20 +4,19 @@
 
 > Actualizar al cerrar cada sesión. Para detalles, ver las secciones de fase correspondientes abajo.
 
-- **Fase actual:** Phase 15.x ✅ + Phase 16 en progreso (2026-05-11)
-- **Último cambio importante:** Firma digital del representante legal — rol `supervisor` (migration 0017), `firma_trabajador` + `firma_representante` en `contract_documents` (migration 0018), PDF dual-firma, dashboard y lista de contratos con indicadores de firma pendiente. NDs 53–56. También: Helvetica 11pt en PDFs, `ciudad_cedula` en formularios y contratos, `forma_pago` texto actualizado.
+- **Fase actual:** Phase 16 ✅ | Mejoras UI/UX en rama `improvements` mergeadas a main (2026-05-14)
+- **Último cambio importante:** Mejoras UI/UX dashboard y contratos; fix producción `createVehicleAction` (ND-58); vehículos desactivados visibles + reactivables + eliminables (admin); expediente 2025-07 Laura Angélica registrado; categoría `sinExpediente` separada de `sinContrato` (ND-57). NDs 57–58 documentadas.
 - **Pendientes inmediatos:**
-  - ⏳ Invitar a Dora Patricia con rol `supervisor` desde `/admin`
-  - ⏳ Probar flujo dual-firma en producción
-  - ⏳ Registrar contrato 2025 de Laura Angélica Ramírez + crear su licencia de maternidad
+  - ⏳ Probar flujo dual-firma en producción (Dora Patricia debe aceptar invitación)
+  - ⏳ Aplicar patrón ND-58 a `createDriverAction`
 - **Bugs abiertos conocidos:** ninguno
-- **Siguiente milestone:** Completar Phase 16 (features por definir con el usuario)
+- **Siguiente milestone:** Phase 17 — features por definir con el usuario
 - **⚠️ Infraestructura:** MCP Supabase apunta a `ukzccqogkbfdtymmgavj`; la app usa `qolnrtoznrgiedyhffbn`. Las migraciones SQL deben aplicarse manualmente en el Dashboard del proyecto correcto.
 
 ---
 
-> **Last updated:** 2026-05-11
-> **Status:** Phase 0 ✅ | Phase 1 ✅ | Phase 2 ✅ | Phase 3 ✅ | Phase 4 ✅ | Phase 5 ✅ | Phase 6 ✅ | Phase 7 ✅ | Phase 8 ✅ | Phase 9 ✅ | Phase 10 ✅ | Phase 11 ✅ | Phase 12 ✅ | Phase 12.x hotfixes ✅ | Phase 13 ✅ | Phase 14 ✅ | Phase 15 ✅ | Phase 15.x cleanup ✅ | Phase 16 🔄
+> **Last updated:** 2026-05-14
+> **Status:** Phase 0 ✅ | Phase 1 ✅ | Phase 2 ✅ | Phase 3 ✅ | Phase 4 ✅ | Phase 5 ✅ | Phase 6 ✅ | Phase 7 ✅ | Phase 8 ✅ | Phase 9 ✅ | Phase 10 ✅ | Phase 11 ✅ | Phase 12 ✅ | Phase 12.x hotfixes ✅ | Phase 13 ✅ | Phase 14 ✅ | Phase 15 ✅ | Phase 15.x cleanup ✅ | Phase 16 ✅ | improvements ✅
 
 ## Stack
 

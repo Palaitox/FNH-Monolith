@@ -21,11 +21,11 @@ export default function NewVehiclePage() {
 
     startTransition(async () => {
       try {
-        const vehicle = await createVehicleAction({ plate: plate.trim(), type })
-        router.push(`/buses/vehicles/${vehicle.id}`)
-      } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e)
-        setError(msg.includes('unique') ? 'Ya existe un vehículo con esa placa.' : msg)
+        const result = await createVehicleAction({ plate: plate.trim(), type })
+        if ('error' in result) { setError(result.error); return }
+        router.push(`/buses/vehicles/${result.vehicle.id}`)
+      } catch {
+        setError('Error inesperado. Intenta de nuevo.')
       }
     })
   }
