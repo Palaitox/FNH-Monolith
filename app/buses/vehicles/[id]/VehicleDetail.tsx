@@ -8,6 +8,8 @@ import { daysUntilExpiry } from '@/app/buses/lib/expiry-calculator'
 import {
   recordVehicleDocumentsAction,
   deactivateVehicleAction,
+  reactivateVehicleAction,
+  deleteVehicleAction,
 } from '@/app/buses/actions/buses'
 import type {
   Vehicle,
@@ -48,6 +50,7 @@ export default function VehicleDetail({ vehicle, compliance, requirements, role 
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [deactivateConfirm, setDeactivateConfirm] = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState(false)
   const [showDocForm, setShowDocForm] = useState(false)
 
   const [docInputs, setDocInputs] = useState<
@@ -241,6 +244,42 @@ export default function VehicleDetail({ vehicle, compliance, requirements, role 
         )}
         {role !== 'viewer' && deactivateConfirm && (
           <button onClick={() => setDeactivateConfirm(false)} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            Cancelar
+          </button>
+        )}
+        {role !== 'viewer' && !isActive && (
+          <button
+            onClick={() => startTransition(async () => {
+              await reactivateVehicleAction(vehicle.id)
+              router.push('/buses/vehicles')
+            })}
+            disabled={isPending}
+            className="rounded-md border border-emerald-500/40 px-4 py-2 text-sm font-medium text-emerald-400 hover:bg-emerald-500/10 transition-colors disabled:opacity-50"
+          >
+            Reactivar vehículo
+          </button>
+        )}
+        {role === 'admin' && (
+          <button
+            onClick={() => {
+              if (!deleteConfirm) { setDeleteConfirm(true); return }
+              startTransition(async () => {
+                await deleteVehicleAction(vehicle.id)
+                router.push('/buses/vehicles')
+              })
+            }}
+            disabled={isPending}
+            className={`rounded-md px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50 ${
+              deleteConfirm
+                ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90'
+                : 'border border-border text-muted-foreground hover:text-foreground hover:bg-muted/30'
+            }`}
+          >
+            {deleteConfirm ? '¿Eliminar permanentemente?' : 'Eliminar vehículo'}
+          </button>
+        )}
+        {deleteConfirm && (
+          <button onClick={() => setDeleteConfirm(false)} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
             Cancelar
           </button>
         )}

@@ -5,34 +5,30 @@
 ---
 
 ## ¿En qué fase estamos?
-**Phase 15.x ✅. Phase 16 en progreso — firma digital del representante legal.**
+**Phase 16 ✅. Rama `improvements` con mejoras UI/UX — pendiente merge a main.**
 
-Migraciones aplicadas en producción: 0001–0018.
-- 0017: rol `supervisor` en `users.role` CHECK constraint
-- 0018: `firma_trabajador` + `firma_representante` en `contract_documents`
+Migraciones aplicadas en producción: 0001–0018. Sin migraciones nuevas en esta sesión.
 
 ---
 
-## Estado real hoy (2026-05-11)
+## Estado real hoy (2026-05-14)
 
-### Completado en Phase 16 (sesión 2026-05-11)
-- ✅ Rol `supervisor` en DB + jerarquía `viewer(0) < coordinator(1) < supervisor(2) < admin(3)` en `auth.ts` + colores violeta en `admin/types.ts` — ND-55
-- ✅ `firma_trabajador` + `firma_representante` en `contract_documents` (migration 0018) — ND-53
-- ✅ PDF: 5 slots del empleador/representante usan `v.firma_representante`; worker usa `v.firma` — ND-56
-- ✅ `attachSignedPdfAction` persiste `firma_trabajador` al firmar via pad — ND-53
-- ✅ `attachRepresentativeSignatureAction` (supervisor+) — genera PDF con ambas firmas — ND-55
-- ✅ Sección firma rep. en `ContractDetail` gateada por `!!contract.firma_trabajador` — ND-54
-- ✅ Dashboard: card "pendientes de firma del representante" visible a todos los roles
-- ✅ Lista de contratos: badge "Falta firma rep." para supervisor/admin
-- ✅ PDF: Helvetica 11pt en todo el cuerpo del contrato (corrección de Monica Durán)
-- ✅ `forma_pago` actualizado a "MENSUAL ENTRE EL DÍA QUINCE (15) Y EL DÍA VEINTE (20)"
-- ✅ `ciudad_cedula` en formulario de empleado, payload de upsert y PDF ("expedida en [city]")
-- ✅ NDs 53, 54, 55, 56 registradas; ND-37 marcada como parcialmente supersedida
+### Completado en esta sesión (rama `improvements`)
+- ✅ Dora Patricia invitada con rol `supervisor` desde `/admin`
+- ✅ Expediente 2025-07 de Laura Angélica Ramírez registrado via SQL + PDF subido + licencia de maternidad registrada
+- ✅ Dashboard: eliminada sección "CONTRATOS" (4 cards redundantes); collapsibles para todos los grupos de estado contractual — ND-57
+- ✅ Dashboard: nueva categoría "Sin expediente" (empleados sin ningún documento en sistema) separada de "Sin contrato vigente" — ND-57
+- ✅ Dashboard: collapsible "Con contrato vigente" muestra lista de empleados y número de expediente activo
+- ✅ Lista de contratos: agrupación por año (colapsada por defecto), orden por urgencia dentro de cada año (vencido → por_vencer → vigente → en_licencia → indefinido)
+- ✅ Lista de contratos: vencidos con borde rose visible (antes era gris), filtros "Vencidos" y "Falta firma rep."
+- ✅ `createVehicleAction` devuelve `{ error }` en vez de lanzar — fix bug en producción — ND-58
+- ✅ Vehículos desactivados: visibles en lista (sección colapsada "Desactivados"), botón "Reactivar" en detalle del vehículo
+- ✅ `deleteVehicleAction` (admin-only) con doble confirmación
+- ✅ NDs 57–58 documentadas
 
-### Pendiente operativo (no code)
-- ⏳ Invitar a Dora Patricia con rol `supervisor` desde `/admin`
-- ⏳ Probar flujo completo dual-firma en producción (trabajador firma → `firma_trabajador` guardado → Dora Patricia firma → PDF con ambas firmas)
-- ⏳ Registrar contrato 2025 de **Laura Angélica Ramírez** + crear su licencia de maternidad en `/employees/[id]`
+### Pendiente operativo
+- ⏳ Probar flujo dual-firma en producción (Dora Patricia debe aceptar la invitación primero)
+- ⏳ Aplicar patrón ND-58 a `createDriverAction` (mismo riesgo de constraint unique en cédula)
 
 ---
 
@@ -56,6 +52,8 @@ Migraciones aplicadas en producción: 0001–0018.
 | Sección firma rep. solo visible cuando `!!contract.firma_trabajador` | `ContractDetail.tsx` condición del bloque rep. | ND-54 |
 | `attachRepresentativeSignatureAction` usa `requireRole('supervisor')`, no `coordinator` | `contracts/actions/contracts.ts` | ND-55 |
 | SigSpace empleador/representante = `v.firma_representante`; worker = `v.firma` | `contract-pdf.tsx` (5 slots columna izq.) | ND-56 |
+| `sinExpediente` = `docs.length === 0`; `sinContrato` = tuvo docs pero ninguno vigente. No mezclar | `contracts/actions/contracts.ts:getEmployeeContractStatusAction` | ND-57 |
+| Server Actions con errores visibles al usuario deben RETORNAR `{ error }`, no lanzar | `buses/actions/buses.ts:createVehicleAction` (patrón) | ND-58 |
 
 ---
 
@@ -69,17 +67,15 @@ Cualquier migración SQL debe correrse manualmente en el Dashboard del proyecto 
 
 ## Siguiente acción concreta
 
-1. Invitar a Dora Patricia con rol `supervisor` desde `/admin`
-2. Probar flujo dual-firma en producción
-3. Registrar contrato 2025 de Laura Angélica Ramírez + licencia de maternidad
-4. Definir features de Phase 16 restantes con el usuario
+1. Probar flujo dual-firma cuando Dora Patricia acepte la invitación
+2. Aplicar patrón ND-58 a `createDriverAction`
+3. Definir features de Phase 17 con el usuario
 
 ---
 
 ## Errores recientes a evitar
-- `let { a, b } = fn()` donde `b` nunca se reasigna → ESLint `prefer-const` falla en build
+- En producción Next.js sanitiza errores de Server Actions — usar `return { error }` no `throw` — ND-58
+- `db/employees.ts` importa `DOCUMENT_SELECT` directo de `./contracts`, nunca via el index — ND-51
+- Contratos subidos manualmente tienen `firma_trabajador = null` — es correcto, no un bug — ND-53
 - No consultar el MCP de Supabase para verificar producción — apunta al proyecto equivocado
 - Pasar `React.ReactElement` como prop dentro de `<Text>` en react-pdf descarta páginas silenciosamente
-- `db/employees.ts` importa `DOCUMENT_SELECT` directo de `./contracts`, nunca via el index — ver ND-51
-- Migration 0018 = `firma_representante` (NO `cargo_contract_texts` — ese feature fue revertido antes del commit)
-- Contratos subidos manualmente tienen `firma_trabajador = null` — es correcto, no un bug

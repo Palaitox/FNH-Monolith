@@ -77,7 +77,8 @@ export interface EmployeeContractStatus {
 }
 
 export interface EmployeeContractSummary {
-  sinContrato: EmployeeContractStatus[]
+  sinExpediente: EmployeeContractStatus[]  // never had any contract in the system
+  sinContrato: EmployeeContractStatus[]    // had contracts but none currently active
   pendienteFirma: EmployeeContractStatus[]
   vigentes: EmployeeContractStatus[]
   enLicencia: EmployeeContractStatus[]
@@ -103,13 +104,13 @@ export async function getEmployeeContractStatusAction(): Promise<EmployeeContrac
     byEmployee.get(empId)!.push(doc)
   }
 
-  const result: EmployeeContractSummary = { sinContrato: [], pendienteFirma: [], vigentes: [], enLicencia: [] }
+  const result: EmployeeContractSummary = { sinExpediente: [], sinContrato: [], pendienteFirma: [], vigentes: [], enLicencia: [] }
 
   for (const emp of employees) {
     const docs = byEmployee.get(emp.id) ?? []
 
     if (docs.length === 0) {
-      result.sinContrato.push({ id: emp.id, full_name: emp.full_name, daysLeft: null, caseNumber: null })
+      result.sinExpediente.push({ id: emp.id, full_name: emp.full_name, daysLeft: null, caseNumber: null })
       continue
     }
 
@@ -178,6 +179,7 @@ export async function getEmployeeContractStatusAction(): Promise<EmployeeContrac
   // Sort each list alphabetically
   const sort = (arr: EmployeeContractStatus[]) =>
     arr.sort((a, b) => a.full_name.localeCompare(b.full_name))
+  sort(result.sinExpediente)
   sort(result.sinContrato)
   sort(result.pendienteFirma)
   sort(result.vigentes)

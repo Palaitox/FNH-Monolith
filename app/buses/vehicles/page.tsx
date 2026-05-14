@@ -1,10 +1,10 @@
 import Link from 'next/link'
-import { listVehicles } from '@/app/buses/actions/buses'
+import { listVehicles, listInactiveVehicles } from '@/app/buses/actions/buses'
 import { getUserRole } from '@/app/(shared)/lib/auth'
 import { Bus } from 'lucide-react'
 
 export default async function VehiclesPage() {
-  const [vehicles, role] = await Promise.all([listVehicles(), getUserRole()])
+  const [vehicles, inactive, role] = await Promise.all([listVehicles(), listInactiveVehicles(), getUserRole()])
 
   return (
     <div className="px-4 py-6 sm:px-6 max-w-5xl mx-auto space-y-6">
@@ -31,38 +31,73 @@ export default async function VehiclesPage() {
         </div>
       </div>
 
-      {vehicles.length === 0 ? (
+      {vehicles.length === 0 && inactive.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border p-12 text-center">
           <Bus className="mx-auto h-8 w-8 text-muted-foreground mb-3" />
           <p className="text-sm text-muted-foreground">No hay vehículos registrados.</p>
         </div>
       ) : (
-        <div className="rounded-lg border border-border bg-card overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground bg-muted/40">
-                <th className="px-4 py-2.5 text-left">Placa</th>
-                <th className="px-4 py-2.5 text-left">Tipo</th>
-                <th className="px-4 py-2.5 text-right" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {vehicles.map((v) => (
-                <tr key={v.id} className="hover:bg-muted/20 transition-colors">
-                  <td className="px-4 py-3 font-mono font-semibold tracking-wider">{v.plate}</td>
-                  <td className="px-4 py-3 text-muted-foreground capitalize">{v.type}</td>
-                  <td className="px-4 py-3 text-right">
-                    <Link
-                      href={`/buses/vehicles/${v.id}`}
-                      className="text-xs text-muted-foreground hover:text-primary transition-colors"
-                    >
-                      Ver →
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="space-y-4">
+          {vehicles.length > 0 && (
+            <div className="rounded-lg border border-border bg-card overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground bg-muted/40">
+                    <th className="px-4 py-2.5 text-left">Placa</th>
+                    <th className="px-4 py-2.5 text-left">Tipo</th>
+                    <th className="px-4 py-2.5 text-right" />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {vehicles.map((v) => (
+                    <tr key={v.id} className="hover:bg-muted/20 transition-colors">
+                      <td className="px-4 py-3 font-mono font-semibold tracking-wider">{v.plate}</td>
+                      <td className="px-4 py-3 text-muted-foreground capitalize">{v.type}</td>
+                      <td className="px-4 py-3 text-right">
+                        <Link href={`/buses/vehicles/${v.id}`} className="text-xs text-muted-foreground hover:text-primary transition-colors">
+                          Ver →
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {inactive.length > 0 && (
+            <details className="group">
+              <summary className="cursor-pointer list-none flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors py-1">
+                <span className="group-open:hidden">▸</span>
+                <span className="hidden group-open:inline">▾</span>
+                Desactivados ({inactive.length})
+              </summary>
+              <div className="mt-2 rounded-lg border border-border bg-card overflow-x-auto opacity-60">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground bg-muted/40">
+                      <th className="px-4 py-2.5 text-left">Placa</th>
+                      <th className="px-4 py-2.5 text-left">Tipo</th>
+                      <th className="px-4 py-2.5 text-right" />
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {inactive.map((v) => (
+                      <tr key={v.id} className="hover:bg-muted/20 transition-colors">
+                        <td className="px-4 py-3 font-mono font-semibold tracking-wider">{v.plate}</td>
+                        <td className="px-4 py-3 text-muted-foreground capitalize">{v.type}</td>
+                        <td className="px-4 py-3 text-right">
+                          <Link href={`/buses/vehicles/${v.id}`} className="text-xs text-muted-foreground hover:text-primary transition-colors">
+                            Ver →
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </details>
+          )}
         </div>
       )}
     </div>

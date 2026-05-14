@@ -4,9 +4,10 @@ import { getFleetComplianceAction } from '@/app/buses/actions/buses'
 import { getAllActiveLeavesAction } from '@/app/employees/actions/leaves'
 import { getUserRole } from '@/app/(shared)/lib/auth'
 import { StatusBadge } from '@/app/buses/components/StatusBadge'
-import { FileText, Users, CheckSquare, Clock, Bus, AlertTriangle, UserCheck, BedDouble, Pen } from 'lucide-react'
+import { CheckSquare, Clock, Bus, AlertTriangle, UserCheck, BedDouble, Pen, FileMinus } from 'lucide-react'
 import type { DocumentStatus } from '@/app/buses/types'
 import { LEAVE_TYPE_LABELS } from '@/app/(shared)/lib/employee-types'
+import { CollapsibleList } from './CollapsibleList'
 
 const STATUS_ORDER: DocumentStatus[] = ['Crítico', 'Alerta', 'Seguimiento', 'Vigente']
 
@@ -41,13 +42,6 @@ export default async function DashboardPage() {
   ])
   const leavesMap = new Map(activeLeaves.map((l) => [l.employeeId, l.leave]))
 
-  const contractCards = [
-    { label: 'Empleados', value: stats.totalEmployees, icon: Users },
-    { label: 'Contratos totales', value: stats.totalContracts, icon: FileText },
-    { label: 'Firmados', value: stats.contractsSigned, icon: CheckSquare },
-    { label: 'Pendientes', value: stats.contractsPending, icon: Clock },
-  ]
-
   return (
     <div className="px-4 py-6 sm:px-6 space-y-8 max-w-5xl mx-auto">
       {/* ── Header ──────────────────────────────────────────────────────── */}
@@ -59,60 +53,6 @@ export default async function DashboardPage() {
           {stats.contractsThisMonth} contrato{stats.contractsThisMonth !== 1 ? 's' : ''} este mes
         </p>
       </div>
-
-      {/* ── Contracts ───────────────────────────────────────────────────── */}
-      <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-            Contratos
-          </h2>
-          <Link
-            href="/contracts"
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
-            Ver todos →
-          </Link>
-        </div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {contractCards.map(({ label, value, icon: Icon }) => (
-            <div key={label} className="rounded-lg border border-border bg-card p-4">
-              <div className="flex items-center gap-2 text-muted-foreground mb-2">
-                <Icon className="h-3.5 w-3.5" />
-                <span className="text-xs">{label}</span>
-              </div>
-              <p className="text-2xl font-mono font-semibold">{value}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* Pending representative signature — visible to all roles */}
-        {stats.pendingRepSignature.length > 0 && (
-          <div className="rounded-lg border border-violet-500/20 overflow-hidden">
-            <div className="px-4 py-2.5 bg-violet-900/10 border-b border-violet-500/20 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <Pen className="h-3.5 w-3.5 text-violet-400" />
-                <p className="text-xs font-medium text-violet-400 uppercase tracking-wide">
-                  {role === 'supervisor' || role === 'admin'
-                    ? `Pendientes de tu firma (${stats.pendingRepSignature.length})`
-                    : `Pendientes de firma de la representante legal (${stats.pendingRepSignature.length})`}
-                </p>
-              </div>
-            </div>
-            <div className="divide-y divide-border">
-              {stats.pendingRepSignature.map((doc) => (
-                <Link
-                  key={doc.id}
-                  href={`/contracts/${doc.id}`}
-                  className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/20 transition-colors"
-                >
-                  <span className="text-sm font-medium">{doc.employeeName}</span>
-                  <span className="font-mono text-xs text-muted-foreground">{doc.caseNumber}</span>
-                </Link>
-              ))}
-            </div>
-          </div>
-        )}
-      </section>
 
       {/* ── Employee contract status ─────────────────────────────────────── */}
       <section className="space-y-3">
@@ -126,8 +66,17 @@ export default async function DashboardPage() {
           </Link>
         </div>
 
-        {/* Summary cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {/* Summary cards — 2×3 grid */}
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <div className={`rounded-lg border p-4 ${contractStatus.sinExpediente.length > 0 ? 'border-orange-500/30 bg-orange-900/10' : 'border-border bg-card'}`}>
+            <div className="flex items-center gap-2 mb-2">
+              <FileMinus className={`h-3.5 w-3.5 ${contractStatus.sinExpediente.length > 0 ? 'text-orange-400' : 'text-muted-foreground'}`} />
+              <span className="text-xs text-muted-foreground">Sin expediente</span>
+            </div>
+            <p className={`text-2xl font-mono font-semibold ${contractStatus.sinExpediente.length > 0 ? 'text-orange-400' : ''}`}>
+              {contractStatus.sinExpediente.length}
+            </p>
+          </div>
           <div className={`rounded-lg border p-4 ${contractStatus.sinContrato.length > 0 ? 'border-rose-500/30 bg-rose-900/10' : 'border-border bg-card'}`}>
             <div className="flex items-center gap-2 mb-2">
               {contractStatus.sinContrato.length > 0
@@ -139,15 +88,6 @@ export default async function DashboardPage() {
               {contractStatus.sinContrato.length}
             </p>
           </div>
-          <div className={`rounded-lg border p-4 ${contractStatus.pendienteFirma.length > 0 ? 'border-amber-500/30 bg-amber-900/10' : 'border-border bg-card'}`}>
-            <div className="flex items-center gap-2 mb-2">
-              <Clock className={`h-3.5 w-3.5 ${contractStatus.pendienteFirma.length > 0 ? 'text-amber-400' : 'text-muted-foreground'}`} />
-              <span className="text-xs text-muted-foreground">Pendientes de firma</span>
-            </div>
-            <p className={`text-2xl font-mono font-semibold ${contractStatus.pendienteFirma.length > 0 ? 'text-amber-400' : ''}`}>
-              {contractStatus.pendienteFirma.length}
-            </p>
-          </div>
           <div className="rounded-lg border border-emerald-500/20 bg-emerald-900/10 p-4">
             <div className="flex items-center gap-2 mb-2">
               <CheckSquare className="h-3.5 w-3.5 text-emerald-400" />
@@ -155,6 +95,15 @@ export default async function DashboardPage() {
             </div>
             <p className="text-2xl font-mono font-semibold text-emerald-400">
               {contractStatus.vigentes.length}
+            </p>
+          </div>
+          <div className={`rounded-lg border p-4 ${contractStatus.pendienteFirma.length > 0 ? 'border-amber-500/30 bg-amber-900/10' : 'border-border bg-card'}`}>
+            <div className="flex items-center gap-2 mb-2">
+              <Clock className={`h-3.5 w-3.5 ${contractStatus.pendienteFirma.length > 0 ? 'text-amber-400' : 'text-muted-foreground'}`} />
+              <span className="text-xs text-muted-foreground">Pendientes de firma</span>
+            </div>
+            <p className={`text-2xl font-mono font-semibold ${contractStatus.pendienteFirma.length > 0 ? 'text-amber-400' : ''}`}>
+              {contractStatus.pendienteFirma.length}
             </p>
           </div>
           <div className={`rounded-lg border p-4 ${contractStatus.enLicencia.length > 0 ? 'border-violet-500/30 bg-violet-900/10' : 'border-border bg-card'}`}>
@@ -166,90 +115,172 @@ export default async function DashboardPage() {
               {contractStatus.enLicencia.length}
             </p>
           </div>
+          <div className={`rounded-lg border p-4 ${stats.pendingRepSignature.length > 0 ? 'border-indigo-500/30 bg-indigo-900/10' : 'border-border bg-card'}`}>
+            <div className="flex items-center gap-2 mb-2">
+              <Pen className={`h-3.5 w-3.5 ${stats.pendingRepSignature.length > 0 ? 'text-indigo-400' : 'text-muted-foreground'}`} />
+              <span className="text-xs text-muted-foreground">Firma rep. pendiente</span>
+            </div>
+            <p className={`text-2xl font-mono font-semibold ${stats.pendingRepSignature.length > 0 ? 'text-indigo-400' : ''}`}>
+              {stats.pendingRepSignature.length}
+            </p>
+          </div>
         </div>
 
-        {/* Sin contrato — most urgent */}
+        {/* Sin expediente — employees with no contract ever created */}
+        {contractStatus.sinExpediente.length > 0 && (
+          <CollapsibleList
+            borderClass="border-orange-500/20"
+            headerBgClass="bg-orange-900/10"
+            header={
+              <p className="text-xs font-medium text-orange-400 uppercase tracking-wide">
+                Sin expediente ({contractStatus.sinExpediente.length})
+              </p>
+            }
+          >
+            {contractStatus.sinExpediente.map((emp) => (
+              <Link
+                key={emp.id}
+                href={`/employees/${emp.id}`}
+                className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/20 transition-colors"
+              >
+                <span className="text-sm font-medium">{emp.full_name}</span>
+                <span className="text-xs text-muted-foreground hover:text-primary transition-colors">Ver →</span>
+              </Link>
+            ))}
+          </CollapsibleList>
+        )}
+
+        {/* Sin contrato — most urgent, collapsed by default */}
         {contractStatus.sinContrato.length > 0 && (
-          <div className="rounded-lg border border-rose-500/20 overflow-hidden">
-            <div className="px-4 py-2.5 bg-rose-900/10 border-b border-rose-500/20">
+          <CollapsibleList
+            borderClass="border-rose-500/20"
+            headerBgClass="bg-rose-900/10"
+            header={
               <p className="text-xs font-medium text-rose-400 uppercase tracking-wide">
                 Sin contrato vigente ({contractStatus.sinContrato.length})
               </p>
-            </div>
-            <div className="divide-y divide-border">
-              {contractStatus.sinContrato.map((emp) => (
+            }
+          >
+            {contractStatus.sinContrato.map((emp) => (
+              <Link
+                key={emp.id}
+                href={`/employees/${emp.id}`}
+                className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/20 transition-colors"
+              >
+                <span className="text-sm font-medium">{emp.full_name}</span>
+                <span className="text-xs text-muted-foreground hover:text-primary transition-colors">Ver →</span>
+              </Link>
+            ))}
+          </CollapsibleList>
+        )}
+
+        {/* Pendientes de firma, collapsed by default */}
+        {contractStatus.pendienteFirma.length > 0 && (
+          <CollapsibleList
+            borderClass="border-amber-500/20"
+            headerBgClass="bg-amber-900/10"
+            header={
+              <p className="text-xs font-medium text-amber-400 uppercase tracking-wide">
+                Pendientes de firma ({contractStatus.pendienteFirma.length})
+              </p>
+            }
+          >
+            {contractStatus.pendienteFirma.map((emp) => (
+              <Link
+                key={emp.id}
+                href={`/contracts?search=${encodeURIComponent(emp.full_name)}`}
+                className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/20 transition-colors"
+              >
+                <span className="text-sm font-medium">{emp.full_name}</span>
+                <span className="text-xs text-muted-foreground">{emp.caseNumber ?? '—'}</span>
+              </Link>
+            ))}
+          </CollapsibleList>
+        )}
+
+        {/* Firma rep. pendiente, collapsed by default */}
+        {stats.pendingRepSignature.length > 0 && (
+          <CollapsibleList
+            borderClass="border-indigo-500/20"
+            headerBgClass="bg-indigo-900/10"
+            header={
+              <p className="text-xs font-medium text-indigo-400 uppercase tracking-wide">
+                Firma rep. pendiente ({stats.pendingRepSignature.length})
+              </p>
+            }
+          >
+            {stats.pendingRepSignature.map((doc) => (
+              <Link
+                key={doc.id}
+                href={`/contracts/${doc.id}`}
+                className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/20 transition-colors"
+              >
+                <span className="text-sm font-medium">{doc.employeeName}</span>
+                <span className="font-mono text-xs text-muted-foreground">{doc.caseNumber}</span>
+              </Link>
+            ))}
+          </CollapsibleList>
+        )}
+
+        {/* Con contrato vigente, collapsed by default */}
+        {contractStatus.vigentes.length > 0 && (
+          <CollapsibleList
+            borderClass="border-emerald-500/20"
+            headerBgClass="bg-emerald-900/10"
+            header={
+              <p className="text-xs font-medium text-emerald-400 uppercase tracking-wide">
+                Con contrato vigente ({contractStatus.vigentes.length})
+              </p>
+            }
+          >
+            {contractStatus.vigentes.map((emp) => (
+              <Link
+                key={emp.id}
+                href={`/employees/${emp.id}`}
+                className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/20 transition-colors"
+              >
+                <span className="text-sm font-medium">{emp.full_name}</span>
+                <span className="font-mono text-xs text-muted-foreground">{emp.caseNumber ?? '—'}</span>
+              </Link>
+            ))}
+          </CollapsibleList>
+        )}
+
+        {/* En licencia, collapsed by default */}
+        {contractStatus.enLicencia.length > 0 && (
+          <CollapsibleList
+            borderClass="border-violet-500/20"
+            headerBgClass="bg-violet-900/10"
+            header={
+              <p className="text-xs font-medium text-violet-400 uppercase tracking-wide">
+                En licencia ({contractStatus.enLicencia.length})
+              </p>
+            }
+          >
+            {contractStatus.enLicencia.map((emp) => {
+              const leave = leavesMap.get(emp.id)
+              return (
                 <Link
                   key={emp.id}
                   href={`/employees/${emp.id}`}
                   className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/20 transition-colors"
                 >
-                  <span className="text-sm font-medium">{emp.full_name}</span>
-                  <span className="text-xs text-muted-foreground hover:text-primary transition-colors">Ver →</span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">{emp.full_name}</p>
+                    {leave && (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {LEAVE_TYPE_LABELS[leave.leave_type]}
+                        {leave.expected_end_date && (
+                          <> · retorno est. {new Date(leave.expected_end_date + 'T12:00:00Z').toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' })}</>
+                        )}
+                      </p>
+                    )}
+                  </div>
+                  <span className="text-xs text-muted-foreground hover:text-primary transition-colors shrink-0 ml-4">Ver →</span>
                 </Link>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Pendientes de firma */}
-        {contractStatus.pendienteFirma.length > 0 && (
-          <div className="rounded-lg border border-amber-500/20 overflow-hidden">
-            <div className="px-4 py-2.5 bg-amber-900/10 border-b border-amber-500/20">
-              <p className="text-xs font-medium text-amber-400 uppercase tracking-wide">
-                Pendientes de firma ({contractStatus.pendienteFirma.length})
-              </p>
-            </div>
-            <div className="divide-y divide-border">
-              {contractStatus.pendienteFirma.map((emp) => (
-                <Link
-                  key={emp.id}
-                  href={`/contracts?search=${encodeURIComponent(emp.full_name)}`}
-                  className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/20 transition-colors"
-                >
-                  <span className="text-sm font-medium">{emp.full_name}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {emp.caseNumber ?? '—'}
-                  </span>
-                </Link>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* En licencia */}
-        {contractStatus.enLicencia.length > 0 && (
-          <div className="rounded-lg border border-violet-500/20 overflow-hidden">
-            <div className="px-4 py-2.5 bg-violet-900/10 border-b border-violet-500/20">
-              <p className="text-xs font-medium text-violet-400 uppercase tracking-wide">
-                En licencia ({contractStatus.enLicencia.length})
-              </p>
-            </div>
-            <div className="divide-y divide-border">
-              {contractStatus.enLicencia.map((emp) => {
-                const leave = leavesMap.get(emp.id)
-                return (
-                  <Link
-                    key={emp.id}
-                    href={`/employees/${emp.id}`}
-                    className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/20 transition-colors"
-                  >
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium">{emp.full_name}</p>
-                      {leave && (
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {LEAVE_TYPE_LABELS[leave.leave_type]}
-                          {leave.expected_end_date && (
-                            <> · retorno est. {new Date(leave.expected_end_date + 'T12:00:00Z').toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' })}</>
-                          )}
-                        </p>
-                      )}
-                    </div>
-                    <span className="text-xs text-muted-foreground hover:text-primary transition-colors shrink-0 ml-4">Ver →</span>
-                  </Link>
-                )
-              })}
-            </div>
-          </div>
+              )
+            })}
+          </CollapsibleList>
         )}
       </section>
 

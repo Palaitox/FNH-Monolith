@@ -125,7 +125,7 @@ export async function getVehicleById(id: string): Promise<Vehicle | null> {
 export async function createVehicleAction(input: {
   plate: string
   type: 'titular' | 'reemplazo'
-}): Promise<Vehicle> {
+}): Promise<{ vehicle: Vehicle } | { error: string }> {
   await requireRole('coordinator')
   const supabase = await createClient()
   const { data, error } = await supabase
@@ -133,9 +133,20 @@ export async function createVehicleAction(input: {
     .insert({ plate: input.plate.toUpperCase(), type: input.type })
     .select()
     .single()
+  if (error) {
+    if (error.code === '23505') return { error: 'Ya existe un vehículo con esa placa.' }
+    return { error: error.message }
+  }
+  revalidatePath('/buses/vehicles')
+  return { vehicle: data }
+}
+
+export async function deleteVehicleAction(id: string): Promise<void> {
+  await requireRole('admin')
+  const supabase = await createClient()
+  const { error } = await supabase.from('vehicles').delete().eq('id', id)
   if (error) throw error
   revalidatePath('/buses/vehicles')
-  return data
 }
 
 export async function deactivateVehicleAction(id: string): Promise<void> {
@@ -147,6 +158,28 @@ export async function deactivateVehicleAction(id: string): Promise<void> {
     .eq('id', id)
   if (error) throw error
   revalidatePath('/buses/vehicles')
+}
+
+export async function reactivateVehicleAction(id: string): Promise<void> {
+  await requireRole('coordinator')
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('vehicles')
+    .update({ deactivated_at: null })
+    .eq('id', id)
+  if (error) throw error
+  revalidatePath('/buses/vehicles')
+}
+
+export async function listInactiveVehicles(): Promise<Vehicle[]> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('vehicles')
+    .select('*')
+    .not('deactivated_at', 'is', null)
+    .order('plate', { ascending: true })
+  if (error) throw error
+  return data ?? []
 }
 
 // ── Verification pairs ─────────────────────────────────────────────────────
