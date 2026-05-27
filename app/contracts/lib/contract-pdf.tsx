@@ -905,11 +905,10 @@ function ContratoPrestacionServicios({ v }: { v: ContractVars }) {
   )
 }
 
-// ── Otro Sí ─────────────────────────────────────────────────────────────────
+// ── Otro Sí — Ampliación de Término (3 páginas) ─────────────────────────────
 
 function OtroSi({ v }: { v: ContractVars }) {
-  const jornadaLabel = v.trabajador_jornada ?? 'JORNADA COMPLETA'
-  const mesUpper = (v.mes_inicio ?? '').toUpperCase()
+  const a = v.otroSiAmpliacion
 
   const fullWidthBold = {
     fontFamily: 'Helvetica-Bold' as const,
@@ -922,78 +921,187 @@ function OtroSi({ v }: { v: ContractVars }) {
 
   return (
     <Document>
+      {/* ── Página 1–2: Otro Sí de Ampliación ─────────────────────────── */}
       <Page style={S.page}>
         <PageHeader />
         <PageFooter />
 
+        {/* Tabla encabezado */}
         <View style={S.table}>
           <View style={S.tableRow}>
             <Text style={fullWidthBold}>
-              {'OTRO SI AL CONTRATO LABORAL A TÉRMINO FIJO INFERIOR A UN AÑO – '}{jornadaLabel}
+              {'OTRO- SI AL CONTRATO INDIVIDUAL DE TRABAJO A TERMINO FIJO N°. '}{v.contrato_numero}
             </Text>
           </View>
-          <View style={S.tableRow}>
-          <Text style={{ ...fullWidthBold, textAlign: 'center' }}>
-            {'N°. '}{v.contrato_numero}
-          </Text>
+          <TR label="EMPLEADOR:" value="FUNDACIÓN NUEVO HORIZONTE NIT:821.003.251-4" />
+          <TR
+            label="TRABAJADOR:"
+            value={`${v.trabajador_nombre} C. C. No. ${v.trabajador_cedula} EXP. EN ${v.trabajador_ciudad_cedula}`}
+          />
+          <TR label="LUGAR DE TRABAJO:" value="FUNDACIÓN NUEVO HORIZONTE – SEDE BUGA" />
+          <TR label="FECHA:" value={a?.fechaEncabezado ?? ''} />
         </View>
-        <TR label="NOMBRE EMPLEADOR:" value="FUNDACIÓN NUEVO HORIZONTE NIT: 821.003.251-4" />
-        <TR label="NOMBRE TRABAJADOR:" value={`${v.trabajador_nombre}  C. C. No. ${v.trabajador_cedula}`} />
-        <TR label="CARGO:" value={v.trabajador_cargo} />
-        <TR label="FECHA:" value="16 DE MARZO DEL AÑO 2026" />
-      </View>
 
-      <Text style={S.body}>
-        {'Entre los suscritos, a saber '}
+        {/* Párrafo intro */}
+        <Text style={S.body}>
+          {'Entre los suscritos a saber: '}
           <B>{'DORA PATRICIA CARMONA SOTO'}</B>
-          {', mayor de edad, identificada con la cédula de ciudadanía '}
-          <B>{'N° 29.158.068 expedida en Ansermanuevo (Valle del Cauca)'}</B>
-          {', en su calidad de Representante Legal de la '}
-          <B>{'FUNDACION NUEVO HORIZONTE NIT 821.003.251-4'}</B>
-          {' y con domicilio principal en la ciudad de Guadalajara de Buga, quien para efectos del presente documento se denominará el '}
-          <B>{'EMPLEADOR'}</B>
-          {', y por otra parte, '}
+          {' identificado con CC. Nº. '}
+          <B>{'29.158.068'}</B>
+          {' expedida en '}
+          <B>{'Buga (Valle Del Cauca)'}</B>
+          {', en su calidad de Representante legal de la '}
+          <B>{'FUNDACION NUEVO HORIZONTE NIT:821.003.251-4'}</B>
+          {', con domicilio principal en la ciudad de Guadalajara de Buga Valle del Cauca, hábil para contratar y obligarse, quien en adelante se denominara '}
+          <B>{'EL EMPLEADOR'}</B>
+          {', y por otra parte '}
           <B>{v.trabajador_nombre}</B>
-          {', también mayor de edad, identificada/o con la cédula de ciudadanía '}
-          <B>{`N° ${v.trabajador_cedula}`}</B>
-          {', quien se denominará el '}
+          {', igualmente mayor de edad, vecino de esta ciudad, identificado/a con cédula de ciudadanía No. '}
+          <B>{v.trabajador_cedula}</B>
+          {' expedida en '}
+          <B>{v.trabajador_ciudad_cedula}</B>
+          {' quien ocupa el cargo de '}
+          <B>{v.trabajador_cargo}</B>
+          {' en adelante se denominará el '}
           <B>{'TRABAJADOR'}</B>
-          {', hemos acordado Por mutuo acuerdo de manera libre y voluntaria suscribir el presente '}
-          <B>{'OTROSÍ'}</B>
-          {' para modificar la forma de pago; bajo las siguientes consideraciones:'}
+          {', se ha convenido por mutuo acuerdo entre las partes, contando con el pleno consentimiento del trabajador y estando en plena capacidad de sus facultades de ejercicio celebrar y firmar "OTRO SI," que hace parte integral del contrato de conformidad a las siguientes.'}
+        </Text>
+
+        {/* CONSIDERACIONES */}
+        <Text style={{ ...S.body, fontFamily: 'Helvetica-Bold', textAlign: 'center' }}>
+          {'CONSIDERACIONES'}
         </Text>
 
         <Text style={S.body}>
-          <B>{'PRIMERA. FORMA DE PAGO'}</B>
-          {': Las partes acuerdan modificar '}
-          <B>{'LA FORMA DE PAGO'}</B>
-          {' del contrato de trabajo vigente. A partir de la firma del presente documento, el pago del salario mensual se realizará dentro del periodo comprendido entre los días '}
-          <B>{'quince (15) y veinte (20)  de cada mes calendario.'}</B>
+          <B>{'PRIMERA:'}</B>
+          {' Que, con el trabajador se suscribió un contrato a término fijo inferior a 1 un año No. '}
+          <B>{v.contrato_numero}</B>
         </Text>
 
         <Text style={S.body}>
-          {'El presente '}
-          <B>{'OTROSÍ'}</B>
-          {' rige a partir de la fecha de su firma y las demás cláusulas del contrato de trabajo original que no fueron modificadas, ni nombradas por este documento permanecen vigentes y sin cambio alguno.'}
+          <B>{'SEGUNDA:'}</B>
+          {' Que, el contrato fue celebrado con fecha de inicio desde el '}
+          <B>{a?.fechaInicioOriginalTexto ?? ''}</B>
+          {' hasta el '}
+          <B>{a?.fechaTerminacionOriginalTexto ?? ''}</B>
+          {'.'}
         </Text>
 
         <Text style={S.body}>
-          {'Para constancia de lo anterior, se firma en dos (2) ejemplares del mismo tenor y valor, ante testigos en Guadalajara de Buga – Valle del Cauca a los dieciséis días del mes de MARZO de 2026.'}
+          <B>{'TERCERA:'}</B>
+          {' Que la Fundación Nuevo Horizonte contrata al personal según la disponibilidad presupuestal que se tenga al momento de la contratación.'}
         </Text>
 
+        <Text style={S.body}>
+          <B>{'CUARTA:'}</B>
+          {' Que por lo anterior las partes deciden realizar una ampliación del término del contrato. De conformidad a lo anterior, las partes establecen las siguientes'}
+        </Text>
+
+        {/* CLAUSULAS */}
+        <Text style={{ ...S.body, fontFamily: 'Helvetica-Bold', textAlign: 'center' }}>
+          {'CLAUSULAS'}
+        </Text>
+
+        <Text style={S.body}>
+          <B>{'PRIMERA. - AMPLIACIÓN DEL TÉRMINO DEL CONTRATO:'}</B>
+          {' Entre el empleador y el trabajador acuerdan que, el término del contrato que inicialmente fue pactado con fecha de inicio del '}
+          <B>{a?.fechaInicioOriginalTexto ?? ''}</B>
+          {' hasta el '}
+          <B>{a?.fechaTerminacionOriginalTexto ?? ''}</B>
+          {', se amplíe quedando de la siguiente manera: Fecha de inicio '}
+          <B>{a?.fechaInicioNuevaMayusculas ?? ''}</B>
+          {', hasta el día '}
+          <B>{a?.fechaTerminacionNuevaMayusculas ?? ''}</B>
+          {'.'}
+        </Text>
+
+        <Text style={S.body}>
+          {'SEGUNDA: Las demás cláusulas del contrato no sufren ninguna modificación. El presente OTRO-SI ha sido discutido amplia y libremente entre las partes, las cuales aprueban las estipulaciones que lo conforman y reemplaza cualquier acuerdo previo verbal o escrito sobre la materia, en tal sentido lo firman en señal de aceptación del mismo.'}
+        </Text>
+
+        <Text style={S.body}>
+          {'Para Constancia se firma en Guadalajara de Buga, el día '}
+          <B>{`${a?.diaDocumentoPalabras ?? ''} (${a?.diaDocumento ?? ''})`}</B>
+          {` de ${a?.mesDocumento ?? ''} del año `}
+          <B>{`${a?.anioDocumentoPalabras ?? ''} (${a?.anioDocumento ?? ''})`}</B>
+          {'.'}
+        </Text>
+
+        {/* Bloque de firma */}
         <View style={S.sigRow}>
           <View style={S.sigCol}>
             <Text style={S.sigLabel}>{'EL EMPLEADOR'}</Text>
             <SigSpace firma={v.firma_representante} />
             <Text style={S.sigName}>{'DORA PATRICIA CARMONA SOTO'}</Text>
-            <Text style={S.sigLine}>{'C.C. No. 29.158.068 de Ansermanuevo'}</Text>
+            <Text style={S.sigLine}>{'C.C. No. 29.158.068 de Buga (Valle Del Cauca)'}</Text>
             <Text style={S.sigLine}>{'Representante Legal'}</Text>
+            <Text style={S.sigLine}>{'Fundación Nuevo Horizonte.'}</Text>
           </View>
           <View style={S.sigCol}>
             <Text style={S.sigLabel}>{'EL TRABAJADOR'}</Text>
             <SigSpace firma={v.firma} />
             <Text style={S.sigName}>{v.trabajador_nombre}</Text>
-            <Text style={S.sigLine}>{`C.C. No. ${v.trabajador_cedula}`}</Text>
+            <Text style={S.sigLine}>{`C.C. No. ${v.trabajador_cedula} de ${v.trabajador_ciudad_cedula}`}</Text>
+            <Text style={S.sigLine}>{`Tel: ${v.trabajador_telefono}`}</Text>
+          </View>
+        </View>
+      </Page>
+
+      {/* ── Página 3: Preaviso de Vencimiento ──────────────────────────── */}
+      <Page style={S.page}>
+        <PageHeader />
+        <PageFooter />
+
+        {/* Fecha de la carta */}
+        <Text style={{ ...S.body, marginBottom: 20 }}>
+          {`Guadalajara de Buga ${a?.diaPreavisoTexto ?? ''} de ${a?.mesPreavisoTexto ?? ''} de ${a?.anioPreavisoTexto ?? ''}.`}
+        </Text>
+
+        {/* Destinatario */}
+        <Text style={S.body}>{'Señor (a).'}</Text>
+        <Text style={{ ...S.body, fontFamily: 'Helvetica-Bold' }}>{v.trabajador_nombre}</Text>
+        <Text style={S.body}>{v.trabajador_cargo}</Text>
+        <Text style={S.body}>{'FUNDACIÓN NUEVO HORIZONTE'}</Text>
+        <Text style={{ ...S.body, marginBottom: 16 }}>{'Ciudad.'}</Text>
+
+        {/* Referencia */}
+        <Text style={{ ...S.body, fontFamily: 'Helvetica-Bold', marginBottom: 12 }}>
+          {'REFERENCIA: PREAVISO DEL VENCIMIENTO DEL PLAZO FIJO PACTADO EN EL CONTRATO LABORAL, ARTÍCULO 46 NUMERAL 1 C. S. T. (REFORMADO POR EL ARTÍCULO 6 DE LA LEY 2466 DE 2025)'}
+        </Text>
+
+        <Text style={{ ...S.body, marginBottom: 12 }}>{'Cordial saludo,'}</Text>
+
+        {/* Cuerpo */}
+        <Text style={S.body}>
+          {'La '}
+          <B>{'FUNDACION NUEVO HORIZONTE'}</B>
+          {' le informa que el contrato laboral a término fijo inferior a un año, suscrito con usted y con vigencia del '}
+          <B>{a?.fechaInicioOriginalPreaviso ?? ''}</B>
+          {' al '}
+          <B>{a?.fechaTerminacionNuevaPreaviso ?? ''}</B>
+          {', no será prorrogado al vencimiento del plazo pactado, de conformidad con lo establecido en el artículo 46 del Código Sustantivo del Trabajo (reformado por el artículo 6 de la Ley 2466 de 2025).'}
+        </Text>
+
+        <Text style={{ ...S.body, marginBottom: 24 }}>
+          {'Esta decisión se comunica con una anticipación no inferior a treinta (30) días calendario, correspondiente al tiempo restante de la prórroga, cumpliendo así con los requisitos legales para los efectos a que haya lugar.'}
+        </Text>
+
+        <Text style={{ ...S.body, marginBottom: 24 }}>{'De usted atentamente,'}</Text>
+
+        {/* Firmas del preaviso */}
+        <View style={S.sigRow}>
+          <View style={S.sigCol}>
+            <SigSpace firma={v.firma_representante} />
+            <Text style={S.sigName}>{'DORA PATRICIA CARMONA SOTO'}</Text>
+            <Text style={S.sigLine}>{'C.C. No. 29.158.068'}</Text>
+            <Text style={S.sigLine}>{'Representante Legal'}</Text>
+            <Text style={S.sigLine}>{'Fundación Nuevo Horizonte.'}</Text>
+          </View>
+          <View style={S.sigCol}>
+            <SigSpace firma={v.firma} />
+            <Text style={S.sigName}>{v.trabajador_nombre}</Text>
+            <Text style={S.sigLine}>{`C.C. No. ${v.trabajador_cedula} de ${v.trabajador_ciudad_cedula}`}</Text>
+            <Text style={S.sigLine}>{`Tel: ${v.trabajador_telefono}`}</Text>
           </View>
         </View>
       </Page>

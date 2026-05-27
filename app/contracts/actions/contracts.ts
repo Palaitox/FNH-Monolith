@@ -69,6 +69,20 @@ export async function getAppSettings(): Promise<AppSettings> {
   return getSettings(supabase)
 }
 
+export async function getInitialContractDates(
+  caseId: string,
+): Promise<{ fecha_inicio: string | null; fecha_terminacion: string | null } | null> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('contract_documents')
+    .select('fecha_inicio, fecha_terminacion')
+    .eq('case_id', caseId)
+    .eq('document_type', 'INICIAL')
+    .limit(1)
+    .maybeSingle()
+  return data ?? null
+}
+
 export interface EmployeeContractStatus {
   id: string
   full_name: string
@@ -221,7 +235,7 @@ export async function createContractAction(input: {
     fecha_inicio: input.fecha_inicio,
     fecha_terminacion: input.fecha_terminacion,
     forma_pago: input.forma_pago,
-    affects_term: input.document_type === 'PRORROGA',
+    affects_term: input.document_type === 'PRORROGA' || input.document_type === 'OTRO_SI',
   })
 
   revalidatePath('/contracts')

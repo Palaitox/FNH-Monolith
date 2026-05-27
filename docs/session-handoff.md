@@ -5,30 +5,27 @@
 ---
 
 ## ¿En qué fase estamos?
-**Phase 16 ✅. Rama `improvements` con mejoras UI/UX — pendiente merge a main.**
+**Phase 17 ✅. Plantilla "Otro Sí de Ampliación" completa + fix iOS 12. Rama `improvements` — pendiente deploy.**
 
 Migraciones aplicadas en producción: 0001–0018. Sin migraciones nuevas en esta sesión.
 
 ---
 
-## Estado real hoy (2026-05-14)
+## Estado real hoy (2026-05-26)
 
 ### Completado en esta sesión (rama `improvements`)
-- ✅ Dora Patricia invitada con rol `supervisor` desde `/admin`
-- ✅ Expediente 2025-07 de Laura Angélica Ramírez registrado via SQL + PDF subido + licencia de maternidad registrada
-- ✅ Dashboard: eliminada sección "CONTRATOS" (4 cards redundantes); collapsibles para todos los grupos de estado contractual — ND-57
-- ✅ Dashboard: nueva categoría "Sin expediente" (empleados sin ningún documento en sistema) separada de "Sin contrato vigente" — ND-57
-- ✅ Dashboard: collapsible "Con contrato vigente" muestra lista de empleados y número de expediente activo
-- ✅ Lista de contratos: agrupación por año (colapsada por defecto), orden por urgencia dentro de cada año (vencido → por_vencer → vigente → en_licencia → indefinido)
-- ✅ Lista de contratos: vencidos con borde rose visible (antes era gris), filtros "Vencidos" y "Falta firma rep."
-- ✅ `createVehicleAction` devuelve `{ error }` en vez de lanzar — fix bug en producción — ND-58
-- ✅ Vehículos desactivados: visibles en lista (sección colapsada "Desactivados"), botón "Reactivar" en detalle del vehículo
-- ✅ `deleteVehicleAction` (admin-only) con doble confirmación
-- ✅ NDs 57–58 documentadas
+- ✅ `contract-pdf.tsx:OtroSi` reconstruido — 3 páginas: acuerdo ampliación (págs. 1–2) + preaviso vencimiento (pág. 3)
+- ✅ `pdf-vars.ts`: `OtroSiAmpliacionVars`, utilidades de fecha en español, `buildOtroSiAmpliacion()`
+- ✅ `NewContractForm.tsx`: campos fecha inicio/fin extensión + fetch automático fechas originales del INICIAL
+- ✅ `page.tsx` + `ContractDetail.tsx`: `otroSiData` disponible al firmar desde el detalle del documento
+- ✅ `affects_term = true` para OTRO_SI en `createContractAction` — ND-59
+- ✅ Fix iOS 12 / Safari 12: `transpilePackages` en `next.config.ts` — ND-60
+- ✅ NDs 59–60 documentadas
 
 ### Pendiente operativo
-- ⏳ Probar flujo dual-firma en producción (Dora Patricia debe aceptar la invitación primero)
-- ⏳ Aplicar patrón ND-58 a `createDriverAction` (mismo riesgo de constraint unique en cédula)
+- ⏳ Probar flujo OTRO_SI completo en producción (crear → firmar trabajador → firmar rep.)
+- ⏳ Probar login en iPad Air (iOS 12) con el fix transpilePackages
+- ⏳ Aplicar patrón ND-58 a `createDriverAction`
 
 ---
 
@@ -51,9 +48,12 @@ Migraciones aplicadas en producción: 0001–0018. Sin migraciones nuevas en est
 | `firma_trabajador` siempre se pasa a `attachSignedPdfAction` al firmar via pad | `ContractDetail.tsx:handleSignatureConfirmed` (5° arg) | ND-53 |
 | Sección firma rep. solo visible cuando `!!contract.firma_trabajador` | `ContractDetail.tsx` condición del bloque rep. | ND-54 |
 | `attachRepresentativeSignatureAction` usa `requireRole('supervisor')`, no `coordinator` | `contracts/actions/contracts.ts` | ND-55 |
-| SigSpace empleador/representante = `v.firma_representante`; worker = `v.firma` | `contract-pdf.tsx` (5 slots columna izq.) | ND-56 |
-| `sinExpediente` = `docs.length === 0`; `sinContrato` = tuvo docs pero ninguno vigente. No mezclar | `contracts/actions/contracts.ts:getEmployeeContractStatusAction` | ND-57 |
+| SigSpace empleador = `v.firma_representante`; trabajador = `v.firma` | `contract-pdf.tsx` (columna izq.) | ND-56 |
+| `sinExpediente` = `docs.length === 0`; `sinContrato` = tuvo docs pero ninguno vigente | `contracts/actions/contracts.ts:getEmployeeContractStatusAction` | ND-57 |
 | Server Actions con errores visibles al usuario deben RETORNAR `{ error }`, no lanzar | `buses/actions/buses.ts:createVehicleAction` (patrón) | ND-58 |
+| OTRO_SI requiere `otroSiData` en `buildContractVars`; sin él las fechas quedan vacías | `pdf-vars.ts`, `contract-pdf.tsx` | ND-59 |
+| `affects_term = true` para PRORROGA **y** OTRO_SI — sin esto la vigencia no se actualiza | `contracts/actions/contracts.ts:createContractAction` | ND-59 |
+| `transpilePackages: ['@supabase/ssr', '@supabase/supabase-js']` en `next.config.ts` — no eliminar | `next.config.ts` | ND-60 |
 
 ---
 
@@ -67,9 +67,9 @@ Cualquier migración SQL debe correrse manualmente en el Dashboard del proyecto 
 
 ## Siguiente acción concreta
 
-1. Probar flujo dual-firma cuando Dora Patricia acepte la invitación
-2. Aplicar patrón ND-58 a `createDriverAction`
-3. Definir features de Phase 17 con el usuario
+1. Probar flujo OTRO_SI completo en producción
+2. Probar login iPad Air (iOS 12)
+3. Aplicar patrón ND-58 a `createDriverAction`
 
 ---
 
@@ -79,3 +79,4 @@ Cualquier migración SQL debe correrse manualmente en el Dashboard del proyecto 
 - Contratos subidos manualmente tienen `firma_trabajador = null` — es correcto, no un bug — ND-53
 - No consultar el MCP de Supabase para verificar producción — apunta al proyecto equivocado
 - Pasar `React.ReactElement` como prop dentro de `<Text>` en react-pdf descarta páginas silenciosamente
+- iOS 12 no soporta `??` ni `?.` — siempre mantener `transpilePackages` en `next.config.ts` — ND-60
