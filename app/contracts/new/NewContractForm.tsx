@@ -9,6 +9,7 @@ import {
   createContractAction,
   getCasesForEmployee,
   getAppSettings,
+  getInitialContractDates,
   attachSignedPdfAction,
 } from '@/app/contracts/actions/contracts'
 import type { Employee } from '@/app/(shared)/lib/employee-types'
@@ -52,6 +53,14 @@ export default function NewContractPage() {
   const [employeeCases, setEmployeeCases] = useState<ContractCase[]>([])
   const [selectedCaseId, setSelectedCaseId] = useState(preCaseId)
 
+  // Otro Sí Ampliación: extension dates + original contract dates (auto-fetched)
+  const [fechaInicioNueva, setFechaInicioNueva] = useState('')
+  const [fechaTerminacionNueva, setFechaTerminacionNueva] = useState('')
+  const [initialContractDates, setInitialContractDates] = useState<{
+    fecha_inicio: string | null
+    fecha_terminacion: string | null
+  } | null>(null)
+
   // PDF import: optional for most types, required for 'indefinido'
   const [importPdfFile, setImportPdfFile] = useState<File | null>(null)
 
@@ -90,6 +99,15 @@ export default function NewContractPage() {
     })
   }, [employeeId, esOtroSi])
 
+  // When selected case changes, fetch the INICIAL document dates for the Otro Sí form
+  useEffect(() => {
+    if (!esOtroSi || !selectedCaseId) {
+      setInitialContractDates(null)
+      return
+    }
+    getInitialContractDates(selectedCaseId).then(setInitialContractDates)
+  }, [selectedCaseId, esOtroSi])
+
   // Reset imported PDF when tipo changes
   useEffect(() => {
     setImportPdfFile(null)
@@ -108,9 +126,10 @@ export default function NewContractPage() {
 
     if (!employeeId || !selectedEmployee) return setError('Selecciona un empleado.')
     if (esOtroSi && !selectedCaseId) return setError('Selecciona el expediente contractual al que aplica este Otro Sí.')
+    if (esOtroSi && (!fechaInicioNueva || !fechaTerminacionNueva)) return setError('Ingresa las fechas de inicio y fin de la extensión.')
     if (!esOtroSi && !fechaInicio) return setError('Ingresa la fecha de inicio.')
 
-    const fechaEfectiva = esOtroSi ? '2026-03-16' : fechaInicio
+    const fechaEfectiva = esOtroSi ? fechaInicioNueva : fechaInicio
 
     setGenerating(true)
     try {
@@ -121,7 +140,7 @@ export default function NewContractPage() {
           document_type: esOtroSi ? 'OTRO_SI' : 'INICIAL',
           tipo_contrato: tipoContrato,
           fecha_inicio: fechaEfectiva,
-          fecha_terminacion: esOtroSi ? undefined : (fechaTerminacion || undefined),
+          fecha_terminacion: esOtroSi ? fechaTerminacionNueva : (fechaTerminacion || undefined),
           forma_pago: esOtroSi ? undefined : (formaPago || undefined),
           case_id: esOtroSi ? selectedCaseId : undefined,
         })
@@ -152,8 +171,14 @@ export default function NewContractPage() {
         const vars = buildContractVars(selectedEmployee, {
           numeroContrato,
           fechaInicio: fechaEfectiva,
-          fechaTerminacion: esOtroSi ? undefined : (fechaTerminacion || undefined),
+          fechaTerminacion: esOtroSi ? fechaTerminacionNueva : (fechaTerminacion || undefined),
           lugarTrabajo: settings?.lugarTrabajo ?? '',
+          otroSiData: esOtroSi ? {
+            fechaInicioOriginal: initialContractDates?.fecha_inicio ?? '',
+            fechaTerminacionOriginal: initialContractDates?.fecha_terminacion ?? '',
+            fechaInicioNueva,
+            fechaTerminacionNueva,
+          } : undefined,
         })
 
         const pdfBlob = await generateContractPdf(vars, tipoContrato)
@@ -163,7 +188,7 @@ export default function NewContractPage() {
           document_type: esOtroSi ? 'OTRO_SI' : 'INICIAL',
           tipo_contrato: tipoContrato,
           fecha_inicio: fechaEfectiva,
-          fecha_terminacion: esOtroSi ? undefined : (fechaTerminacion || undefined),
+          fecha_terminacion: esOtroSi ? fechaTerminacionNueva : (fechaTerminacion || undefined),
           forma_pago: esOtroSi ? undefined : (formaPago || undefined),
           case_id: esOtroSi ? selectedCaseId : undefined,
         })
@@ -301,6 +326,38 @@ export default function NewContractPage() {
                 value={fechaTerminacion}
                 onChange={(e) => setFechaTerminacion(e.target.value)}
               />
+            </div>
+          </div>
+        )}
+
+        {/* Otro Sí: vigencia original (read-only) + fechas de la extensión */}
+        {esOtroSi && (
+          <div className="space-y-4">
+            {initialContractDates && (
+              <div className="rounded-md bg-muted/40 border px-3 py-2 text-sm text-muted-foreground">
+                <span className="font-medium text-foreground">Vigencia original:</span>{' '}
+                {initialContractDates.fecha_inicio ?? '—'} → {initialContractDates.fecha_terminacion ?? '—'}
+              </div>
+            )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Inicio de la extensión</label>
+                <input
+                  type="date"
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                  value={fechaInicioNueva}
+                  onChange={(e) => setFechaInicioNueva(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Fin de la extensión</label>
+                <input
+                  type="date"
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                  value={fechaTerminacionNueva}
+                  onChange={(e) => setFechaTerminacionNueva(e.target.value)}
+                />
+              </div>
             </div>
           </div>
         )}

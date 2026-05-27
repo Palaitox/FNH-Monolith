@@ -4,19 +4,20 @@
 
 > Actualizar al cerrar cada sesión. Para detalles, ver las secciones de fase correspondientes abajo.
 
-- **Fase actual:** Phase 16 ✅ | Mejoras UI/UX en rama `improvements` mergeadas a main (2026-05-14)
-- **Último cambio importante:** Mejoras UI/UX dashboard y contratos; fix producción `createVehicleAction` (ND-58); vehículos desactivados visibles + reactivables + eliminables (admin); expediente 2025-07 Laura Angélica registrado; categoría `sinExpediente` separada de `sinContrato` (ND-57). NDs 57–58 documentadas.
+- **Fase actual:** Phase 17 ✅ | Plantilla "Otro Sí de Ampliación" + fix iOS 12 (2026-05-26)
+- **Último cambio importante:** OTRO_SI 3 páginas completo (`OtroSi` reconstruido); `affects_term=true` para OTRO_SI; fix iOS 12 `transpilePackages`; NDs 59–60 documentadas.
 - **Pendientes inmediatos:**
-  - ⏳ Probar flujo dual-firma en producción (Dora Patricia debe aceptar invitación)
+  - ⏳ Probar flujo OTRO_SI completo en producción
+  - ⏳ Probar login iPad Air (iOS 12)
   - ⏳ Aplicar patrón ND-58 a `createDriverAction`
 - **Bugs abiertos conocidos:** ninguno
-- **Siguiente milestone:** Phase 17 — features por definir con el usuario
+- **Siguiente milestone:** Phase 18 — features por definir con el usuario
 - **⚠️ Infraestructura:** MCP Supabase apunta a `ukzccqogkbfdtymmgavj`; la app usa `qolnrtoznrgiedyhffbn`. Las migraciones SQL deben aplicarse manualmente en el Dashboard del proyecto correcto.
 
 ---
 
-> **Last updated:** 2026-05-14
-> **Status:** Phase 0 ✅ | Phase 1 ✅ | Phase 2 ✅ | Phase 3 ✅ | Phase 4 ✅ | Phase 5 ✅ | Phase 6 ✅ | Phase 7 ✅ | Phase 8 ✅ | Phase 9 ✅ | Phase 10 ✅ | Phase 11 ✅ | Phase 12 ✅ | Phase 12.x hotfixes ✅ | Phase 13 ✅ | Phase 14 ✅ | Phase 15 ✅ | Phase 15.x cleanup ✅ | Phase 16 ✅ | improvements ✅
+> **Last updated:** 2026-05-26
+> **Status:** Phase 0 ✅ | Phase 1 ✅ | Phase 2 ✅ | Phase 3 ✅ | Phase 4 ✅ | Phase 5 ✅ | Phase 6 ✅ | Phase 7 ✅ | Phase 8 ✅ | Phase 9 ✅ | Phase 10 ✅ | Phase 11 ✅ | Phase 12 ✅ | Phase 12.x hotfixes ✅ | Phase 13 ✅ | Phase 14 ✅ | Phase 15 ✅ | Phase 15.x cleanup ✅ | Phase 16 ✅ | Phase 17 ✅ | improvements ✅
 
 ## Stack
 

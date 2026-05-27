@@ -23,6 +23,7 @@ interface Props {
   auditLogs: ContractAuditLog[]
   employee: Employee | null
   role: UserRole | null
+  initialContractDates?: { fecha_inicio: string | null; fecha_terminacion: string | null } | null
 }
 
 const DOCTYPE_LABEL: Record<string, string> = {
@@ -36,7 +37,7 @@ const STORAGE_BUCKET = 'contracts'
 const labelClass = "text-xs font-medium uppercase tracking-wide text-muted-foreground"
 const btnSecondary = "rounded-md border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
 
-export default function ContractDetail({ contract, auditLogs, employee, role }: Props) {
+export default function ContractDetail({ contract, auditLogs, employee, role, initialContractDates }: Props) {
   const router = useRouter()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isPending, startTransition] = useTransition()
@@ -104,6 +105,12 @@ export default function ContractDetail({ contract, auditLogs, employee, role }: 
         fechaInicio: contract.fecha_inicio ?? '',
         fechaTerminacion: contract.fecha_terminacion ?? undefined,
         lugarTrabajo: settings.lugarTrabajo,
+        otroSiData: contract.document_type === 'OTRO_SI' ? {
+          fechaInicioOriginal: initialContractDates?.fecha_inicio ?? '',
+          fechaTerminacionOriginal: initialContractDates?.fecha_terminacion ?? '',
+          fechaInicioNueva: contract.fecha_inicio ?? '',
+          fechaTerminacionNueva: contract.fecha_terminacion ?? '',
+        } : undefined,
       })
       const vars = {
         ...baseVars,
@@ -172,6 +179,12 @@ export default function ContractDetail({ contract, auditLogs, employee, role }: 
         fechaInicio: contract.fecha_inicio ?? '',
         fechaTerminacion: contract.fecha_terminacion ?? undefined,
         lugarTrabajo: settings.lugarTrabajo,
+        otroSiData: contract.document_type === 'OTRO_SI' ? {
+          fechaInicioOriginal: initialContractDates?.fecha_inicio ?? '',
+          fechaTerminacionOriginal: initialContractDates?.fecha_terminacion ?? '',
+          fechaInicioNueva: contract.fecha_inicio ?? '',
+          fechaTerminacionNueva: contract.fecha_terminacion ?? '',
+        } : undefined,
       })
       const vars = {
         ...baseVars,
