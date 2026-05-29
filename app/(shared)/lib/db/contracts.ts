@@ -115,6 +115,8 @@ export async function attachSignedPdf(
   filename: string,
   pdfHash: string,
   firmaTrabajador?: string,
+  metadata?: { ip: string; userAgent: string },
+  workerVerification?: { userId: string; email: string },
 ): Promise<void> {
   const signedAt = new Date().toISOString()
 
@@ -157,6 +159,11 @@ export async function attachSignedPdf(
       signed_at: signedAt,
       signed_by_email: user?.email ?? null,
       signed_by_id: user?.id ?? null,
+      client_ip: metadata?.ip ?? null,
+      client_user_agent: metadata?.userAgent ?? null,
+      worker_verified: workerVerification != null,
+      worker_user_id: workerVerification?.userId ?? null,
+      worker_email: workerVerification?.email ?? null,
     },
   })
 }
@@ -168,7 +175,10 @@ export async function attachRepresentativeSignature(
   filename: string,
   pdfHash: string,
   firmaRepresentante: string,
+  metadata?: { ip: string; userAgent: string },
 ): Promise<void> {
+  const signedAt = new Date().toISOString()
+
   const { error } = await supabase
     .from('contract_documents')
     .update({
@@ -181,6 +191,35 @@ export async function attachRepresentativeSignature(
   if (error) throw error
 
   await logDocumentAction(supabase, documentId, 'representative_signed', { filename, hash: pdfHash })
+
+  // Permanent forense record — mirrors contract_signed entry for the worker signature
+  const { data: doc } = await supabase
+    .from('contract_documents')
+    .select('contract_cases(case_number, employees(full_name))')
+    .eq('id', documentId)
+    .single()
+  const { data: { user } } = await supabase.auth.getUser()
+  const caseData = (doc as unknown as {
+    contract_cases: { case_number: string; employees: { full_name: string }[] }
+  } | null)?.contract_cases
+  const employeeName = Array.isArray(caseData?.employees)
+    ? (caseData.employees[0]?.full_name ?? null) : null
+  await supabase.from('system_logs').insert({
+    log_type: 'server_action',
+    payload: {
+      event: 'contract_representative_signed',
+      document_id: documentId,
+      case_number: caseData?.case_number ?? null,
+      employee_name: employeeName,
+      pdf_filename: filename,
+      pdf_hash: pdfHash,
+      signed_at: signedAt,
+      signed_by_email: user?.email ?? null,
+      signed_by_id: user?.id ?? null,
+      client_ip: metadata?.ip ?? null,
+      client_user_agent: metadata?.userAgent ?? null,
+    },
+  })
 }
 
 export async function deleteDocument(supabase: SupabaseClient, id: string): Promise<void> {

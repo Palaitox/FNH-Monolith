@@ -11,7 +11,7 @@ export interface ContractCase {
 
 // ── Contract Documents ────────────────────────────────────────────────────
 
-export type DocumentType = 'INICIAL' | 'PRORROGA' | 'OTRO_SI' | 'TERMINACION'
+export type DocumentType = 'INICIAL' | 'PRORROGA' | 'OTRO_SI' | 'OTRO_SI_AMPLIACION' | 'TERMINACION'
 export type DocumentEstado = 'generated' | 'signed'
 
 export interface ContractDocument {

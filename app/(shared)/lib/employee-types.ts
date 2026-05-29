@@ -26,6 +26,8 @@ export interface Employee {
   salario_base: number | null
   auxilio_transporte: number
   jornada_laboral: JornadaLaboral
+  /** Linked user account (role='worker') for identity verification before signing. Null/undefined if no account exists. */
+  user_id?: string | null
   deactivated_at: string | null
   created_at: string
 }

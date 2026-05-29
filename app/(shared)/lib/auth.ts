@@ -86,7 +86,9 @@ export async function getUserClaims() {
 /**
  * Returns the user's role from public.users, or null.
  */
-export type UserRole = 'admin' | 'supervisor' | 'coordinator' | 'viewer'
+// 'worker' = employee with a system account for signing verification only.
+// Workers cannot access any management feature — ROLE_HIERARCHY assigns them -1.
+export type UserRole = 'admin' | 'supervisor' | 'coordinator' | 'viewer' | 'worker'
 
 export async function getUserRole(): Promise<UserRole | null> {
   const claims = await getUserClaims()
@@ -104,10 +106,11 @@ export async function getUserRole(): Promise<UserRole | null> {
 }
 
 const ROLE_HIERARCHY: Record<UserRole, number> = {
-  viewer:      0,
-  coordinator: 1,
-  supervisor:  2,
-  admin:       3,
+  worker:      -1, // below all management roles — fails every requireRole check
+  viewer:       0,
+  coordinator:  1,
+  supervisor:   2,
+  admin:        3,
 }
 
 /**

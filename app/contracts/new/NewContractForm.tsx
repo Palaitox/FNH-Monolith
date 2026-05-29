@@ -24,7 +24,8 @@ const TIPO_INICIAL_OPTIONS = [
 
 // Additive documents — attached to an existing expediente
 const TIPO_ADICIONAL_OPTIONS = [
-  { value: 'otro_si', label: 'Otro Sí — Modificatorio' },
+  { value: 'otro_si_ampliacion', label: 'Otro Sí — Ampliación de término' },
+  { value: 'otro_si',            label: 'Otro Sí — Modificación fecha de pago' },
 ]
 
 export default function NewContractPage() {
@@ -44,7 +45,7 @@ export default function NewContractPage() {
 
   // Form state
   const [employeeId, setEmployeeId] = useState(preEmployeeId)
-  const [tipoContrato, setTipoContrato] = useState(preCaseId ? 'otro_si' : 'tiempo_completo')
+  const [tipoContrato, setTipoContrato] = useState(preCaseId ? 'otro_si_ampliacion' : 'tiempo_completo')
   const [fechaInicio, setFechaInicio] = useState('')
   const [fechaTerminacion, setFechaTerminacion] = useState('')
   const [formaPago, setFormaPago] = useState('')
@@ -71,7 +72,8 @@ export default function NewContractPage() {
   // modoAdicional: arriving with a pre-filled case_id means we're adding to an existing expediente
   const modoAdicional = !!preCaseId
   const tipoOptions   = modoAdicional ? TIPO_ADICIONAL_OPTIONS : TIPO_INICIAL_OPTIONS
-  const esOtroSi      = tipoContrato === 'otro_si'
+  const esOtroSi         = tipoContrato === 'otro_si' || tipoContrato === 'otro_si_ampliacion'
+  const esOtroSiAmpliacion = tipoContrato === 'otro_si_ampliacion'
 
   useEffect(() => {
     Promise.all([listEmployees(), nextContractNumber(), getAppSettings()]).then(
@@ -101,12 +103,12 @@ export default function NewContractPage() {
 
   // When selected case changes, fetch the INICIAL document dates for the Otro Sí form
   useEffect(() => {
-    if (!esOtroSi || !selectedCaseId) {
+    if (!esOtroSiAmpliacion || !selectedCaseId) {
       setInitialContractDates(null)
       return
     }
     getInitialContractDates(selectedCaseId).then(setInitialContractDates)
-  }, [selectedCaseId, esOtroSi])
+  }, [selectedCaseId, esOtroSiAmpliacion])
 
   // Reset imported PDF when tipo changes
   useEffect(() => {
@@ -126,10 +128,10 @@ export default function NewContractPage() {
 
     if (!employeeId || !selectedEmployee) return setError('Selecciona un empleado.')
     if (esOtroSi && !selectedCaseId) return setError('Selecciona el expediente contractual al que aplica este Otro Sí.')
-    if (esOtroSi && (!fechaInicioNueva || !fechaTerminacionNueva)) return setError('Ingresa las fechas de inicio y fin de la extensión.')
-    if (!esOtroSi && !fechaInicio) return setError('Ingresa la fecha de inicio.')
+    if (esOtroSiAmpliacion && (!fechaInicioNueva || !fechaTerminacionNueva)) return setError('Ingresa las fechas de inicio y fin de la extensión.')
+    if (!esOtroSiAmpliacion && !fechaInicio) return setError('Ingresa la fecha de inicio.')
 
-    const fechaEfectiva = esOtroSi ? fechaInicioNueva : fechaInicio
+    const fechaEfectiva = esOtroSiAmpliacion ? fechaInicioNueva : fechaInicio
 
     setGenerating(true)
     try {
@@ -137,10 +139,10 @@ export default function NewContractPage() {
         // ── Import mode: skip PDF generation, create doc + upload + sign ──────
         const doc = await createContractAction({
           employee_id: employeeId,
-          document_type: esOtroSi ? 'OTRO_SI' : 'INICIAL',
+          document_type: esOtroSiAmpliacion ? 'OTRO_SI_AMPLIACION' : (esOtroSi ? 'OTRO_SI' : 'INICIAL'),
           tipo_contrato: tipoContrato,
           fecha_inicio: fechaEfectiva,
-          fecha_terminacion: esOtroSi ? fechaTerminacionNueva : (fechaTerminacion || undefined),
+          fecha_terminacion: esOtroSiAmpliacion ? fechaTerminacionNueva : (fechaTerminacion || undefined),
           forma_pago: esOtroSi ? undefined : (formaPago || undefined),
           case_id: esOtroSi ? selectedCaseId : undefined,
         })
@@ -173,7 +175,7 @@ export default function NewContractPage() {
           fechaInicio: fechaEfectiva,
           fechaTerminacion: esOtroSi ? fechaTerminacionNueva : (fechaTerminacion || undefined),
           lugarTrabajo: settings?.lugarTrabajo ?? '',
-          otroSiData: esOtroSi ? {
+          otroSiData: esOtroSiAmpliacion ? {
             fechaInicioOriginal: initialContractDates?.fecha_inicio ?? '',
             fechaTerminacionOriginal: initialContractDates?.fecha_terminacion ?? '',
             fechaInicioNueva,
@@ -185,10 +187,10 @@ export default function NewContractPage() {
 
         const doc = await createContractAction({
           employee_id: employeeId,
-          document_type: esOtroSi ? 'OTRO_SI' : 'INICIAL',
+          document_type: esOtroSiAmpliacion ? 'OTRO_SI_AMPLIACION' : (esOtroSi ? 'OTRO_SI' : 'INICIAL'),
           tipo_contrato: tipoContrato,
           fecha_inicio: fechaEfectiva,
-          fecha_terminacion: esOtroSi ? fechaTerminacionNueva : (fechaTerminacion || undefined),
+          fecha_terminacion: esOtroSiAmpliacion ? fechaTerminacionNueva : (fechaTerminacion || undefined),
           forma_pago: esOtroSi ? undefined : (formaPago || undefined),
           case_id: esOtroSi ? selectedCaseId : undefined,
         })
@@ -306,7 +308,7 @@ export default function NewContractPage() {
           </div>
         )}
 
-        {/* Dates — hidden for Otro Sí */}
+        {/* Dates — initial contract types (fechaInicio + fechaTerminacion) */}
         {!esOtroSi && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
@@ -330,8 +332,21 @@ export default function NewContractPage() {
           </div>
         )}
 
-        {/* Otro Sí: vigencia original (read-only) + fechas de la extensión */}
-        {esOtroSi && (
+        {/* Otro Sí fecha de pago: solo fecha del documento */}
+        {tipoContrato === 'otro_si' && (
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">Fecha del documento</label>
+            <input
+              type="date"
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+              value={fechaInicio}
+              onChange={(e) => setFechaInicio(e.target.value)}
+            />
+          </div>
+        )}
+
+        {/* Otro Sí Ampliación: vigencia original (read-only) + fechas de la extensión */}
+        {esOtroSiAmpliacion && (
           <div className="space-y-4">
             {initialContractDates && (
               <div className="rounded-md bg-muted/40 border px-3 py-2 text-sm text-muted-foreground">

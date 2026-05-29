@@ -31,17 +31,19 @@ export interface CaseGroup {
 // ── Constants ─────────────────────────────────────────────────────────────
 
 const DOCTYPE_LABEL: Record<string, string> = {
-  INICIAL:     'Contrato inicial',
-  PRORROGA:    'Prórroga',
-  OTRO_SI:     'Otro Sí',
-  TERMINACION: 'Terminación',
+  INICIAL:            'Contrato inicial',
+  PRORROGA:           'Prórroga',
+  OTRO_SI:            'Otro Sí — Fecha de pago',
+  OTRO_SI_AMPLIACION: 'Otro Sí — Ampliación',
+  TERMINACION:        'Terminación',
 }
 
 const DOCTYPE_COLOR: Record<string, string> = {
-  INICIAL:     'text-sky-400 bg-sky-400/10 border-sky-400/20',
-  PRORROGA:    'text-violet-400 bg-violet-400/10 border-violet-400/20',
-  OTRO_SI:     'text-amber-400 bg-amber-400/10 border-amber-400/20',
-  TERMINACION: 'text-rose-400 bg-rose-400/10 border-rose-400/20',
+  INICIAL:            'text-sky-400 bg-sky-400/10 border-sky-400/20',
+  PRORROGA:           'text-violet-400 bg-violet-400/10 border-violet-400/20',
+  OTRO_SI:            'text-amber-400 bg-amber-400/10 border-amber-400/20',
+  OTRO_SI_AMPLIACION: 'text-amber-400 bg-amber-400/10 border-amber-400/20',
+  TERMINACION:        'text-rose-400 bg-rose-400/10 border-rose-400/20',
 }
 
 const VIGENCY_BORDER: Record<VigencyStatus, string> = {
@@ -250,7 +252,7 @@ function CaseCard({
               {group.docs.length} doc{group.docs.length !== 1 ? 's' : ''}
             </span>
           )}
-          {role !== 'viewer' && group.employeeId && !isExpired && group.docs.some((d) => d.document_type === 'INICIAL') && (
+          {role !== 'viewer' && group.employeeId && group.docs.some((d) => d.document_type === 'INICIAL') && (
             <Link
               href={`/contracts/new?employee_id=${group.employeeId}&case_id=${group.caseId}`}
               className="text-xs text-muted-foreground hover:text-foreground border border-border rounded px-2 py-1 hover:bg-muted/30 transition-colors"
