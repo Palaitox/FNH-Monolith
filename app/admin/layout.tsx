@@ -5,7 +5,8 @@ import { redirect } from 'next/navigation'
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const role = await getUserRole()
 
-  // Hard redirect — non-admins cannot access any route under /admin
+  // Workers go to their portal; other non-admins go to dashboard
+  if (role === 'worker') redirect('/worker')
   if (role !== 'admin') redirect('/dashboard')
 
   return (

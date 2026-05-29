@@ -1,4 +1,4 @@
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { createClient } from '@/lib/server'
 import { getDocument, getDocumentAuditLogs, getEmployee } from '@/app/(shared)/lib/db'
 import { getUserRole } from '@/app/(shared)/lib/auth'
@@ -12,6 +12,10 @@ interface Props {
 export default async function ContractDetailPage({ params }: Props) {
   const { id } = await params
   const supabase = await createClient()
+
+  // Workers cannot access the management contract detail — redirect to their portal
+  const quickRole = await getUserRole()
+  if (quickRole === 'worker') redirect('/worker')
 
   const [doc, auditLogs, role] = await Promise.all([
     getDocument(supabase, id),

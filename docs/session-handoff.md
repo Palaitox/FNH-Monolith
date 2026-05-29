@@ -5,26 +5,37 @@
 ---
 
 ## ¿En qué fase estamos?
-**Phase 17 ✅. Plantilla "Otro Sí de Ampliación" completa + fix iOS 12. Rama `improvements` — pendiente deploy.**
+**Phase 18 ✅. Mejoras legales firma electrónica + portal worker + dos subtipos de Otro Sí. Rama `improvements` — sin deploy todavía (esperando instrucción explícita).**
 
-Migraciones aplicadas en producción: 0001–0018. Sin migraciones nuevas en esta sesión.
+Migraciones aplicadas en producción: 0001–0020.
 
 ---
 
-## Estado real hoy (2026-05-26)
+## Estado real hoy (2026-05-27)
 
 ### Completado en esta sesión (rama `improvements`)
-- ✅ `contract-pdf.tsx:OtroSi` reconstruido — 3 páginas: acuerdo ampliación (págs. 1–2) + preaviso vencimiento (pág. 3)
-- ✅ `pdf-vars.ts`: `OtroSiAmpliacionVars`, utilidades de fecha en español, `buildOtroSiAmpliacion()`
-- ✅ `NewContractForm.tsx`: campos fecha inicio/fin extensión + fetch automático fechas originales del INICIAL
-- ✅ `page.tsx` + `ContractDetail.tsx`: `otroSiData` disponible al firmar desde el detalle del documento
-- ✅ `affects_term = true` para OTRO_SI en `createContractAction` — ND-59
-- ✅ Fix iOS 12 / Safari 12: `transpilePackages` en `next.config.ts` — ND-60
-- ✅ NDs 59–60 documentadas
+- ✅ IP + User-Agent en `system_logs` al firmar (trabajador y representante) — Gaps 1–2 Phase 18
+- ✅ `system_logs` forense para firma del representante (antes solo en `contract_audit_logs`)
+- ✅ Texto de consentimiento legal en `SignatureModal` antes del canvas — Decreto 2364/2012
+- ✅ Botón "Enviar copia al empleado" + `sendContractCopyAction` via Resend
+- ✅ Rol `worker` (migration 0020): `ROLE_HIERARCHY = -1`, guards en 5 layouts — ND-61
+- ✅ `inviteWorkerAction` / `revokeWorkerAccountAction` desde detalle del empleado
+- ✅ `WorkerVerificationModal` — credenciales en memoria, sesión coordinador intacta — ND-62
+- ✅ Portal `/worker` con contratos propios + firma desde portal — ND-63
+- ✅ `workerSignContractAction` — service client + autorización por `case_id → employee_id` — ND-63
+- ✅ Route guards en `contracts/`, `dashboard/`, `employees/`, `buses/`, `admin/` layouts
+- ✅ `OTRO_SI_AMPLIACION` como document_type separado (migration 0019) — ND-64
+- ✅ `affects_term = true` solo para `OTRO_SI_AMPLIACION`, no para `OTRO_SI`
+- ✅ `+ Agregar` habilitado para contratos vencidos (quitado guard `!isExpired`)
+- ✅ `OtroSiPago` restaurado con fecha hardcodeada `2026-05-16`
+- ✅ `OtroSiAmpliacion` ajustado a plantilla real (ciudad uppercase en tabla, Para Constancia sin bold)
+- ✅ NDs 61–64 documentadas; ND-59 actualizada
 
 ### Pendiente operativo
-- ⏳ Probar flujo OTRO_SI completo en producción (crear → firmar trabajador → firmar rep.)
-- ⏳ Probar login en iPad Air (iOS 12) con el fix transpilePackages
+- ⏳ Deploy a Vercel (commit + push pendiente de instrucción)
+- ⏳ Probar portal `/worker` en producción (requiere empleado con cuenta worker activa)
+- ⏳ Probar flujo Otro Sí Ampliación completo en producción
+- ⏳ Probar login iPad Air (iOS 12) con fix transpilePackages — ND-60
 - ⏳ Aplicar patrón ND-58 a `createDriverAction`
 
 ---
@@ -37,7 +48,7 @@ Migraciones aplicadas en producción: 0001–0018. Sin migraciones nuevas en est
 | `db/employees.ts` importa `DOCUMENT_SELECT` directo de `./contracts`, nunca via index | `db/employees.ts:8` | ND-51 |
 | `page.tsx` fetches server-side → props a Client Components; nunca `useEffect` para carga inicial | `employees/page.tsx`, `contracts/page.tsx`, `dashboard/page.tsx` | ND-52 |
 | Override `en_licencia` en DOS lugares: `groupByCases()` + `getEmployeeContractStatusAction()` | `contracts/page.tsx` y `contracts/actions/contracts.ts` | ND-49 |
-| `+ Agregar` solo si el caso tiene documento INICIAL | `ContractsList.tsx`: `group.docs.some(d => d.document_type === 'INICIAL')` | ND-48 |
+| `+ Agregar` solo si el caso tiene documento INICIAL (vencidos sí pueden tener Otro Sí) | `ContractsList.tsx` | ND-48 |
 | `claim_next_case_number()` escanea la tabla, no contador persistente | `db/contracts.ts` → `supabase.rpc('claim_next_case_number')` | ND-46 |
 | `deleteContractAction` borra el case si queda vacío de documentos | `contracts/actions/contracts.ts` | ND-46 |
 | Vigencia: `current_end_date ?? fecha_terminacion(INICIAL)` | `ContractsList.tsx` y `getEmployeeContractStatusAction` | ND-47 |
@@ -51,9 +62,12 @@ Migraciones aplicadas en producción: 0001–0018. Sin migraciones nuevas en est
 | SigSpace empleador = `v.firma_representante`; trabajador = `v.firma` | `contract-pdf.tsx` (columna izq.) | ND-56 |
 | `sinExpediente` = `docs.length === 0`; `sinContrato` = tuvo docs pero ninguno vigente | `contracts/actions/contracts.ts:getEmployeeContractStatusAction` | ND-57 |
 | Server Actions con errores visibles al usuario deben RETORNAR `{ error }`, no lanzar | `buses/actions/buses.ts:createVehicleAction` (patrón) | ND-58 |
-| OTRO_SI requiere `otroSiData` en `buildContractVars`; sin él las fechas quedan vacías | `pdf-vars.ts`, `contract-pdf.tsx` | ND-59 |
-| `affects_term = true` para PRORROGA **y** OTRO_SI — sin esto la vigencia no se actualiza | `contracts/actions/contracts.ts:createContractAction` | ND-59 |
+| `OTRO_SI_AMPLIACION` requiere `otroSiData` en `buildContractVars`; sin él fechas vacías | `pdf-vars.ts`, `contract-pdf.tsx` | ND-59 |
+| `affects_term = true` solo para `PRORROGA` y `OTRO_SI_AMPLIACION` — no para `OTRO_SI` | `contracts/actions/contracts.ts:createContractAction` | ND-64 |
 | `transpilePackages: ['@supabase/ssr', '@supabase/supabase-js']` en `next.config.ts` — no eliminar | `next.config.ts` | ND-60 |
+| Rol `worker` tiene `ROLE_HIERARCHY = -1`; nueva sección DEBE tener guard en su `layout.tsx` | `auth.ts`, 5 layouts de sección | ND-61 |
+| `WorkerVerificationModal` usa `persistSession: false + memoryStorage` — nunca cliente normal | `app/contracts/[id]/WorkerVerificationModal.tsx` | ND-62 |
+| `workerSignContractAction` verifica `case_id → employee_id = worker's employee_id` antes de firmar | `app/worker/actions.ts` | ND-63 |
 
 ---
 
@@ -67,9 +81,11 @@ Cualquier migración SQL debe correrse manualmente en el Dashboard del proyecto 
 
 ## Siguiente acción concreta
 
-1. Probar flujo OTRO_SI completo en producción
-2. Probar login iPad Air (iOS 12)
-3. Aplicar patrón ND-58 a `createDriverAction`
+1. Hacer commit + push (cuando el usuario lo indique explícitamente)
+2. Probar portal `/worker` en producción con empleado real que tenga cuenta worker
+3. Probar flujo Otro Sí Ampliación completo (crear → firmar trabajador → firmar rep.)
+4. Probar login iPad Air (iOS 12) — ND-60
+5. Aplicar patrón ND-58 a `createDriverAction`
 
 ---
 
@@ -80,3 +96,5 @@ Cualquier migración SQL debe correrse manualmente en el Dashboard del proyecto 
 - No consultar el MCP de Supabase para verificar producción — apunta al proyecto equivocado
 - Pasar `React.ReactElement` como prop dentro de `<Text>` en react-pdf descarta páginas silenciosamente
 - iOS 12 no soporta `??` ni `?.` — siempre mantener `transpilePackages` en `next.config.ts` — ND-60
+- Nueva sección sin guard worker en su layout → workers ganan acceso — ND-61
+- `WorkerVerificationModal` con cliente Supabase normal → reemplaza sesión del coordinador — ND-62
