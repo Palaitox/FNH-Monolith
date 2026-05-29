@@ -14,9 +14,13 @@ Migraciones aplicadas en producción: 0001–0020.
 ## Estado real hoy (2026-05-29)
 
 ### Completado en esta sesión (rama `improvements`)
-- ✅ Fix bug firma portal worker: error "An unexpected response was received from the server"
-  al firmar — causa: PDF base64 superaba límite 1MB de Server Actions.
-  Fix: `serverActions.bodySizeLimit: '10mb'` en `next.config.ts` — ND-65
+- ✅ Fix bug firma worker: error "An unexpected response was received from the server"
+  Causa raíz: `WorkerVerificationModal` usaba `createBrowserClient` de `@supabase/ssr`,
+  que ignora `auth.storage`/`persistSession: false` y tiene singleton en browsers.
+  `signInWithPassword` del worker sobreescribía las cookies del coordinador; `signOut`
+  destruía la sesión. `attachSignedPdfAction` → `requireRole('coordinator')` fallaba.
+  Fix: reemplazar `createBrowserClient` por `createClient` de `@supabase/supabase-js` — ND-62 actualizada.
+- ✅ `serverActions.bodySizeLimit: '10mb'` en `next.config.ts` — ND-65 (fix adicional preventivo)
 
 ### Completado en sesiones anteriores (rama `improvements`)
 - ✅ IP + User-Agent en `system_logs` al firmar (trabajador y representante) — Gaps 1–2 Phase 18
@@ -100,5 +104,5 @@ Cualquier migración SQL debe correrse manualmente en el Dashboard del proyecto 
 - Pasar `React.ReactElement` como prop dentro de `<Text>` en react-pdf descarta páginas silenciosamente
 - iOS 12 no soporta `??` ni `?.` — siempre mantener `transpilePackages` en `next.config.ts` — ND-60
 - Nueva sección sin guard worker en su layout → workers ganan acceso — ND-61
-- `WorkerVerificationModal` con cliente Supabase normal → reemplaza sesión del coordinador — ND-62
+- `WorkerVerificationModal` con `createBrowserClient` de `@supabase/ssr` → sobreescribe cookies del coordinador (ignora `auth.storage` + singleton) — usar `createClient` de `@supabase/supabase-js` — ND-62
 - PDF base64 en Server Action supera 1MB por defecto → error opaco — mantener `bodySizeLimit: '10mb'` — ND-65
