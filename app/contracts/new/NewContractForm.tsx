@@ -129,9 +129,9 @@ export default function NewContractPage() {
     if (!employeeId || !selectedEmployee) return setError('Selecciona un empleado.')
     if (esOtroSi && !selectedCaseId) return setError('Selecciona el expediente contractual al que aplica este Otro Sí.')
     if (esOtroSiAmpliacion && (!fechaInicioNueva || !fechaTerminacionNueva)) return setError('Ingresa las fechas de inicio y fin de la extensión.')
-    if (!esOtroSiAmpliacion && !fechaInicio) return setError('Ingresa la fecha de inicio.')
+    if (!esOtroSi && !fechaInicio) return setError('Ingresa la fecha de inicio.')
 
-    const fechaEfectiva = esOtroSiAmpliacion ? fechaInicioNueva : fechaInicio
+    const fechaEfectiva = esOtroSiAmpliacion ? fechaInicioNueva : tipoContrato === 'otro_si' ? '2026-05-16' : fechaInicio
 
     setGenerating(true)
     try {
@@ -332,18 +332,7 @@ export default function NewContractPage() {
           </div>
         )}
 
-        {/* Otro Sí fecha de pago: solo fecha del documento */}
-        {tipoContrato === 'otro_si' && (
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">Fecha del documento</label>
-            <input
-              type="date"
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-              value={fechaInicio}
-              onChange={(e) => setFechaInicio(e.target.value)}
-            />
-          </div>
-        )}
+        {/* Otro Sí fecha de pago: fecha fija 16 de mayo de 2026 — sin input */}
 
         {/* Otro Sí Ampliación: vigencia original (read-only) + fechas de la extensión */}
         {esOtroSiAmpliacion && (

@@ -909,8 +909,6 @@ function ContratoPrestacionServicios({ v }: { v: ContractVars }) {
 // ── Otro Sí — Modificación de fecha de pago ──────────────────────────────────
 
 function OtroSiPago({ v }: { v: ContractVars }) {
-  const jornadaLabel = v.trabajador_jornada ?? 'JORNADA COMPLETA'
-
   const fullWidthBold = {
     fontFamily: 'Helvetica-Bold' as const,
     fontSize: 9,
@@ -920,6 +918,8 @@ function OtroSiPago({ v }: { v: ContractVars }) {
     flex: 1,
   }
 
+  const fechaEncabezado = `${v.dia_inicio} DE ${(v.mes_inicio ?? '').toUpperCase()} DEL AÑO ${v.anio_inicio}`
+
   return (
     <Document>
       <Page style={S.page}>
@@ -928,8 +928,8 @@ function OtroSiPago({ v }: { v: ContractVars }) {
 
         <View style={S.table}>
           <View style={S.tableRow}>
-            <Text style={fullWidthBold}>
-              {'OTRO SI AL CONTRATO LABORAL A TÉRMINO FIJO INFERIOR A UN AÑO – '}{jornadaLabel}
+            <Text style={{ ...fullWidthBold, textAlign: 'center' }}>
+              {'OTRO SI AL CONTRATO LABORAL A TÉRMINO FIJO INFERIOR A UN AÑO'}
             </Text>
           </View>
           <View style={S.tableRow}>
@@ -940,7 +940,7 @@ function OtroSiPago({ v }: { v: ContractVars }) {
           <TR label="NOMBRE EMPLEADOR:" value="FUNDACIÓN NUEVO HORIZONTE NIT: 821.003.251-4" />
           <TR label="NOMBRE TRABAJADOR:" value={`${v.trabajador_nombre}  C. C. No. ${v.trabajador_cedula}`} />
           <TR label="CARGO:" value={v.trabajador_cargo} />
-          <TR label="FECHA:" value={(v.fecha_inicio_texto ?? '').toUpperCase()} />
+          <TR label="FECHA:" value={fechaEncabezado} />
         </View>
 
         <Text style={S.body}>
@@ -978,7 +978,7 @@ function OtroSiPago({ v }: { v: ContractVars }) {
         </Text>
 
         <Text style={S.body}>
-          {`Para constancia de lo anterior, se firma en dos (2) ejemplares del mismo tenor y valor, ante testigos en Guadalajara de Buga – Valle del Cauca, a los ${v.dia_inicio} días del mes de ${(v.mes_inicio ?? '').toUpperCase()} de ${v.anio_inicio}.`}
+          {`Para constancia de lo anterior, se firma en dos (2) ejemplares del mismo tenor y valor, ante testigos en Guadalajara de Buga – Valle del Cauca a los ${v.dia_inicio} días del mes de ${(v.mes_inicio ?? '').toUpperCase()} de ${v.anio_inicio}.`}
         </Text>
 
         <View style={S.sigRow}>
@@ -1032,7 +1032,7 @@ function OtroSiAmpliacion({ v }: { v: ContractVars }) {
           <TR label="EMPLEADOR:" value="FUNDACIÓN NUEVO HORIZONTE NIT:821.003.251-4" />
           <TR
             label="TRABAJADOR:"
-            value={`${v.trabajador_nombre} C. C. No. ${v.trabajador_cedula} EXP. EN ${v.trabajador_ciudad_cedula}`}
+            value={`${v.trabajador_nombre} C. C. No. ${v.trabajador_cedula} EXP. EN ${(v.trabajador_ciudad_cedula ?? '').toUpperCase()}`}
           />
           <TR label="LUGAR DE TRABAJO:" value="FUNDACIÓN NUEVO HORIZONTE – SEDE BUGA" />
           <TR label="FECHA:" value={a?.fechaEncabezado ?? ''} />
@@ -1116,11 +1116,7 @@ function OtroSiAmpliacion({ v }: { v: ContractVars }) {
         </Text>
 
         <Text style={S.body}>
-          {'Para Constancia se firma en Guadalajara de Buga, el día '}
-          <B>{`${a?.diaDocumentoPalabras ?? ''} (${a?.diaDocumento ?? ''})`}</B>
-          {` de ${a?.mesDocumento ?? ''} del año `}
-          <B>{`${a?.anioDocumentoPalabras ?? ''} (${a?.anioDocumento ?? ''})`}</B>
-          {'.'}
+          {`Para Constancia se firma en Guadalajara de Buga, el día ${a?.diaDocumentoPalabras ?? ''} (${a?.diaDocumento ?? ''}) de ${a?.mesDocumento ?? ''} del año ${a?.anioDocumentoPalabras ?? ''} (${a?.anioDocumento ?? ''}).`}
         </Text>
 
         {/* Bloque de firma */}
