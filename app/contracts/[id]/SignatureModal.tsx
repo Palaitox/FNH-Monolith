@@ -87,6 +87,11 @@ export default function SignatureModal({ workerName, onConfirm, onClose }: Props
 
       {/* Canvas area */}
       <div className="flex-1 p-6 flex flex-col gap-3 min-h-0">
+        <p className="text-xs text-muted-foreground border border-border/60 rounded-md px-3 py-2 bg-muted/20 leading-relaxed">
+          Al confirmar, <span className="font-medium text-foreground">{workerName}</span> declara haber
+          leído el documento y acepta que esta firma electrónica tiene plena validez jurídica equivalente
+          a la firma manuscrita, de conformidad con la Ley 527 de 1999 y el Decreto 2364 de 2012.
+        </p>
         <div className="flex-1 relative rounded-xl border-2 border-dashed border-border bg-white overflow-hidden">
           <canvas
             ref={canvasRef}

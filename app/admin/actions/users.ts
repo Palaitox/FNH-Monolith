@@ -5,6 +5,7 @@ import { createSupabaseServiceClient } from '@/app/(shared)/lib/auth'
 import { requireRole, getUserClaims } from '@/app/(shared)/lib/auth'
 import { revalidatePath } from 'next/cache'
 import type { AppUser, AppUserRole } from '@/app/admin/types'
+import type { Employee } from '@/app/(shared)/lib/employee-types'
 
 // ── Read ───────────────────────────────────────────────────────────────────
 
@@ -166,4 +167,94 @@ export async function deleteUserAction(id: string): Promise<void> {
   if (authError) throw new Error(`Error al eliminar la cuenta: ${authError.message}`)
 
   revalidatePath('/admin')
+}
+
+// ── Worker account management ──────────────────────────────────────────────
+// Coordinators and admins can invite employees to create a worker account,
+// which enables identity verification before digital signing.
+
+export async function inviteWorkerAction(
+  employeeId: string,
+): Promise<{ success: true } | { error: string }> {
+  await requireRole('coordinator')
+  const supabase = await createClient()
+  const service = await createSupabaseServiceClient()
+
+  const { data: emp, error: empErr } = await supabase
+    .from('employees')
+    .select('*')
+    .eq('id', employeeId)
+    .maybeSingle()
+
+  if (empErr || !emp) return { error: 'Empleado no encontrado.' }
+
+  const employee = emp as unknown as Employee
+
+  if (employee.user_id) return { error: 'Este empleado ya tiene una cuenta de firma.' }
+  if (!employee.correo) return { error: 'El empleado no tiene correo registrado. Agrégalo primero en el perfil.' }
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://fnh-monolith.vercel.app'
+  const { data, error: authError } = await service.auth.admin.inviteUserByEmail(employee.correo, {
+    redirectTo: `${appUrl}/auth/invite`,
+  })
+
+  if (authError) {
+    if (authError.message.includes('already been registered')) {
+      return { error: 'Ya existe una cuenta con ese correo. Contacta al administrador.' }
+    }
+    return { error: `Error al enviar la invitación: ${authError.message}` }
+  }
+
+  const { error: userErr } = await service.from('users').insert({
+    id: data.user.id,
+    name: employee.full_name.toUpperCase(),
+    email: employee.correo,
+    role: 'worker',
+  })
+
+  if (userErr) {
+    await service.auth.admin.deleteUser(data.user.id).catch(() => {})
+    return { error: `Error al registrar la cuenta: ${userErr.message}` }
+  }
+
+  const { error: linkErr } = await service
+    .from('employees')
+    .update({ user_id: data.user.id })
+    .eq('id', employeeId)
+
+  if (linkErr) {
+    try { await service.from('users').delete().eq('id', data.user.id) } catch { /* rollback best-effort */ }
+    await service.auth.admin.deleteUser(data.user.id).catch(() => {})
+    return { error: `Error al vincular la cuenta: ${linkErr.message}` }
+  }
+
+  revalidatePath(`/employees/${employeeId}`)
+  return { success: true }
+}
+
+export async function revokeWorkerAccountAction(
+  employeeId: string,
+): Promise<{ success: true } | { error: string }> {
+  await requireRole('coordinator')
+  const supabase = await createClient()
+  const service = await createSupabaseServiceClient()
+
+  const { data: emp } = await supabase
+    .from('employees')
+    .select('user_id')
+    .eq('id', employeeId)
+    .maybeSingle()
+
+  const userId = (emp as { user_id: string | null } | null)?.user_id
+  if (!userId) return { error: 'Este empleado no tiene cuenta de firma.' }
+
+  // Delete public.users row first (FK order — ND-42 pattern)
+  const { error: dbErr } = await service.from('users').delete().eq('id', userId)
+  if (dbErr) return { error: `Error al eliminar la cuenta: ${dbErr.message}` }
+
+  // Delete auth user — ON DELETE SET NULL clears employees.user_id automatically
+  await service.auth.admin.deleteUser(userId).catch(() => {})
+
+  revalidatePath(`/employees/${employeeId}`)
+  return { success: true }
 }

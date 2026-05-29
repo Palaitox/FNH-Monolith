@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/server'
 import { requireRole } from '@/app/(shared)/lib/auth'
+import { headers } from 'next/headers'
 import {
   getDocuments,
   getDocument,
@@ -17,6 +18,7 @@ import {
   getStats,
   getSettings,
   getActiveLeavesMap,
+  logDocumentAction,
 } from '@/app/(shared)/lib/db'
 import type {
   ContractCase,
@@ -202,6 +204,16 @@ export async function getEmployeeContractStatusAction(): Promise<EmployeeContrac
   return result
 }
 
+// ── Request metadata ───────────────────────────────────────────────────────
+
+async function getRequestMetadata() {
+  const h = await headers()
+  return {
+    ip: h.get('x-forwarded-for') ?? h.get('x-real-ip') ?? 'unknown',
+    userAgent: h.get('user-agent') ?? 'unknown',
+  }
+}
+
 // ── Mutations ──────────────────────────────────────────────────────────────
 
 export async function createContractAction(input: {
@@ -235,7 +247,7 @@ export async function createContractAction(input: {
     fecha_inicio: input.fecha_inicio,
     fecha_terminacion: input.fecha_terminacion,
     forma_pago: input.forma_pago,
-    affects_term: input.document_type === 'PRORROGA' || input.document_type === 'OTRO_SI',
+    affects_term: input.document_type === 'PRORROGA' || input.document_type === 'OTRO_SI_AMPLIACION',
   })
 
   revalidatePath('/contracts')
@@ -305,10 +317,12 @@ export async function attachSignedPdfAction(
   filename: string,
   pdfHash: string,
   firmaTrabajador?: string,
+  workerVerification?: { userId: string; email: string },
 ) {
   await requireRole('coordinator')
   const supabase = await createClient()
-  await attachSignedPdf(supabase, documentId, pdfPath, filename, pdfHash, firmaTrabajador)
+  const meta = await getRequestMetadata()
+  await attachSignedPdf(supabase, documentId, pdfPath, filename, pdfHash, firmaTrabajador, meta, workerVerification)
   revalidatePath('/contracts')
 }
 
@@ -321,6 +335,83 @@ export async function attachRepresentativeSignatureAction(
 ) {
   await requireRole('supervisor')
   const supabase = await createClient()
-  await attachRepresentativeSignature(supabase, documentId, pdfPath, filename, pdfHash, firmaRepresentante)
+  const meta = await getRequestMetadata()
+  await attachRepresentativeSignature(supabase, documentId, pdfPath, filename, pdfHash, firmaRepresentante, meta)
   revalidatePath('/contracts')
+}
+
+export async function sendContractCopyAction(
+  documentId: string,
+): Promise<{ success: true; recipient: string } | { error: string }> {
+  await requireRole('coordinator')
+  const supabase = await createClient()
+
+  const { data: doc } = await supabase
+    .from('contract_documents')
+    .select('pdf_path, pdf_filename, contract_cases(case_number, employees(full_name, correo))')
+    .eq('id', documentId)
+    .maybeSingle()
+
+  if (!doc?.pdf_path) return { error: 'El contrato no tiene PDF firmado.' }
+
+  type DocShape = {
+    pdf_path: string
+    pdf_filename: string | null
+    contract_cases: {
+      case_number: string
+      employees: { full_name: string; correo: string | null }[]
+    }
+  }
+  const d = doc as unknown as DocShape
+  const employee = Array.isArray(d.contract_cases?.employees) ? d.contract_cases.employees[0] : null
+  const correo = employee?.correo ?? null
+  const caseNumber = d.contract_cases?.case_number ?? '—'
+
+  if (!correo) return { error: 'El empleado no tiene correo registrado en el sistema.' }
+
+  const { data: urlData, error: urlErr } = await supabase.storage
+    .from('contracts')
+    .createSignedUrl(doc.pdf_path, 60 * 60 * 24 * 7) // 7 días
+
+  if (urlErr || !urlData?.signedUrl) return { error: 'No se pudo generar el enlace al PDF.' }
+
+  const { Resend } = await import('resend')
+  const resend = new Resend(process.env.RESEND_API_KEY)
+  const FROM = process.env.RESEND_FROM_EMAIL ?? 'onboarding@resend.dev'
+
+  const { error: emailErr } = await resend.emails.send({
+    from: FROM,
+    to: correo,
+    subject: `Copia de contrato firmado — Expediente ${caseNumber}`,
+    html: `
+      <div style="font-family:sans-serif;max-width:540px;margin:0 auto">
+        <h2 style="color:#111827;margin-bottom:4px">Copia de tu contrato firmado</h2>
+        <p style="color:#4b5563">Hola <strong>${employee?.full_name ?? 'estimado/a'}</strong>,</p>
+        <p style="color:#4b5563">
+          A continuación encontrarás el enlace para descargar tu contrato firmado
+          correspondiente al expediente <strong>${caseNumber}</strong>
+          de la Fundación Nuevo Horizonte.
+        </p>
+        <p style="margin:28px 0">
+          <a href="${urlData.signedUrl}"
+             style="background:#111827;color:#fff;padding:11px 22px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px">
+            Descargar contrato
+          </a>
+        </p>
+        <p style="color:#6b7280;font-size:13px">
+          El enlace estará activo por <strong>7 días</strong>. Si tienes alguna pregunta,
+          comunícate con el área de recursos humanos.
+        </p>
+        <p style="margin-top:24px;font-size:12px;color:#9ca3af">
+          Este mensaje fue generado automáticamente por el sistema de gestión FNH.
+        </p>
+      </div>
+    `,
+  })
+
+  if (emailErr) return { error: `Error al enviar el correo: ${emailErr.message}` }
+
+  await logDocumentAction(supabase, documentId, 'copy_sent', { recipient_email: correo })
+
+  return { success: true, recipient: correo }
 }

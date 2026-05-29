@@ -10,6 +10,7 @@ import {
   attachRepresentativeSignatureAction,
   deleteContractAction,
   getAppSettings,
+  sendContractCopyAction,
 } from '@/app/contracts/actions/contracts'
 import { verifyContractIntegrity } from '@/app/contracts/actions/verify-integrity'
 import type { ContractDocumentFull, ContractAuditLog } from '@/app/contracts/types'
@@ -17,6 +18,7 @@ import type { Employee } from '@/app/(shared)/lib/employee-types'
 import type { UserRole } from '@/app/(shared)/lib/auth'
 import { hashData } from '@/app/contracts/lib/security'
 import SignatureModal from './SignatureModal'
+import WorkerVerificationModal from './WorkerVerificationModal'
 
 interface Props {
   contract: ContractDocumentFull
@@ -27,10 +29,11 @@ interface Props {
 }
 
 const DOCTYPE_LABEL: Record<string, string> = {
-  INICIAL:     'Contrato inicial',
-  PRORROGA:    'Prórroga',
-  OTRO_SI:     'Otro Sí',
-  TERMINACION: 'Terminación',
+  INICIAL:            'Contrato inicial',
+  PRORROGA:           'Prórroga',
+  OTRO_SI:            'Otro Sí — Fecha de pago',
+  OTRO_SI_AMPLIACION: 'Otro Sí — Ampliación',
+  TERMINACION:        'Terminación',
 }
 
 const STORAGE_BUCKET = 'contracts'
@@ -44,6 +47,8 @@ export default function ContractDetail({ contract, auditLogs, employee, role, in
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState(false)
+  const [showWorkerVerifyModal, setShowWorkerVerifyModal] = useState(false)
+  const [workerVerification, setWorkerVerification] = useState<{ userId: string; email: string } | null>(null)
   const [showSignatureModal, setShowSignatureModal] = useState(false)
   const [signing, setSigning] = useState(false)
   const [signError, setSignError] = useState<string | null>(null)
@@ -53,6 +58,10 @@ export default function ContractDetail({ contract, auditLogs, employee, role, in
   const [signingRep, setSigningRep] = useState(false)
   const [signRepError, setSignRepError] = useState<string | null>(null)
   const [justSignedRep, setJustSignedRep] = useState(false)
+
+  const [sendingCopy, setSendingCopy] = useState(false)
+  const [copySentTo, setCopySentTo] = useState<string | null>(null)
+  const [copyError, setCopyError] = useState<string | null>(null)
 
   const [openingPdf, setOpeningPdf] = useState(false)
   const [openPdfError, setOpenPdfError] = useState<string | null>(null)
@@ -105,7 +114,7 @@ export default function ContractDetail({ contract, auditLogs, employee, role, in
         fechaInicio: contract.fecha_inicio ?? '',
         fechaTerminacion: contract.fecha_terminacion ?? undefined,
         lugarTrabajo: settings.lugarTrabajo,
-        otroSiData: contract.document_type === 'OTRO_SI' ? {
+        otroSiData: contract.document_type === 'OTRO_SI_AMPLIACION' ? {
           fechaInicioOriginal: initialContractDates?.fecha_inicio ?? '',
           fechaTerminacionOriginal: initialContractDates?.fecha_terminacion ?? '',
           fechaInicioNueva: contract.fecha_inicio ?? '',
@@ -134,7 +143,7 @@ export default function ContractDetail({ contract, auditLogs, employee, role, in
         .upload(pdfPath, pdfBlob, { contentType: 'application/pdf', upsert: true })
       if (upErr) throw new Error(`Error al subir el PDF: ${upErr.message}`)
 
-      await attachSignedPdfAction(contract.id, pdfPath, filename, hash, signatureDataUrl)
+      await attachSignedPdfAction(contract.id, pdfPath, filename, hash, signatureDataUrl, workerVerification ?? undefined)
 
       setJustSigned(true)
 
@@ -179,7 +188,7 @@ export default function ContractDetail({ contract, auditLogs, employee, role, in
         fechaInicio: contract.fecha_inicio ?? '',
         fechaTerminacion: contract.fecha_terminacion ?? undefined,
         lugarTrabajo: settings.lugarTrabajo,
-        otroSiData: contract.document_type === 'OTRO_SI' ? {
+        otroSiData: contract.document_type === 'OTRO_SI_AMPLIACION' ? {
           fechaInicioOriginal: initialContractDates?.fecha_inicio ?? '',
           fechaTerminacionOriginal: initialContractDates?.fecha_terminacion ?? '',
           fechaInicioNueva: contract.fecha_inicio ?? '',
@@ -217,6 +226,19 @@ export default function ContractDetail({ contract, auditLogs, employee, role, in
     } finally {
       setSigningRep(false)
     }
+  }
+
+  async function handleSendCopy() {
+    setSendingCopy(true)
+    setCopyError(null)
+    setCopySentTo(null)
+    const result = await sendContractCopyAction(contract.id)
+    if ('error' in result) {
+      setCopyError(result.error)
+    } else {
+      setCopySentTo(result.recipient)
+    }
+    setSendingCopy(false)
   }
 
   async function handleOpenPdf() {
@@ -260,8 +282,31 @@ export default function ContractDetail({ contract, auditLogs, employee, role, in
 
   const isSignedState = contract.estado === 'signed'
 
+  function handleOpenWorkerSign() {
+    setWorkerVerification(null)
+    if (employee?.user_id && employee?.correo) {
+      setShowWorkerVerifyModal(true)
+    } else {
+      setShowSignatureModal(true)
+    }
+  }
+
+  function handleWorkerVerified(userId: string, email: string) {
+    setWorkerVerification({ userId, email })
+    setShowWorkerVerifyModal(false)
+    setShowSignatureModal(true)
+  }
+
   return (
     <>
+      {showWorkerVerifyModal && employee?.correo && (
+        <WorkerVerificationModal
+          workerName={employeeName}
+          workerEmail={employee.correo}
+          onVerified={handleWorkerVerified}
+          onClose={() => setShowWorkerVerifyModal(false)}
+        />
+      )}
       {showSignatureModal && (
         <SignatureModal
           workerName={employeeName}
@@ -363,12 +408,16 @@ export default function ContractDetail({ contract, auditLogs, employee, role, in
               </p>
             )}
             <button
-              onClick={() => setShowSignatureModal(true)}
+              onClick={handleOpenWorkerSign}
               disabled={signing}
               className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
             >
               <PenLine className="h-4 w-4" />
-              {signing ? 'Generando PDF firmado…' : 'Capturar firma del trabajador'}
+              {signing ? 'Generando PDF firmado…' : (
+                employee?.user_id
+                  ? 'Verificar y capturar firma del trabajador'
+                  : 'Capturar firma del trabajador'
+              )}
             </button>
           </section>
         )}
@@ -437,7 +486,27 @@ export default function ContractDetail({ contract, auditLogs, employee, role, in
                 </p>
               )}
 
-              <div className="space-y-2">
+              {employee?.correo && role !== 'viewer' && (
+              <div className="flex items-center gap-3 flex-wrap">
+                <button
+                  onClick={handleSendCopy}
+                  disabled={sendingCopy}
+                  className={`inline-flex items-center gap-1.5 ${btnSecondary} text-xs py-1.5`}
+                >
+                  {sendingCopy ? 'Enviando…' : `Enviar copia a ${employee.correo}`}
+                </button>
+                {copySentTo && (
+                  <span className="text-xs text-emerald-400">
+                    Copia enviada a {copySentTo}
+                  </span>
+                )}
+                {copyError && (
+                  <span className="text-xs text-destructive">{copyError}</span>
+                )}
+              </div>
+            )}
+
+            <div className="space-y-2">
                 <button
                   onClick={handleVerifyIntegrity}
                   disabled={verifying}

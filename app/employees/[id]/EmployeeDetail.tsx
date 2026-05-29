@@ -9,6 +9,10 @@ import {
   reactivateEmployeeAction,
   deleteEmployeeAction,
 } from '@/app/employees/actions/employees'
+import {
+  inviteWorkerAction,
+  revokeWorkerAccountAction,
+} from '@/app/admin/actions/users'
 import type { Employee, JornadaLaboral, EmployeeLeave, LeaveType } from '@/app/employees/types'
 import type { ContractDocumentFull } from '@/app/contracts/types'
 import { createLeaveAction, closeLeaveAction } from '@/app/employees/actions/leaves'
@@ -49,6 +53,8 @@ export default function EmployeeDetail({ employee, contracts, leaves, role }: Pr
   const [editMode, setEditMode] = useState(false)
   const [confirmDeactivate, setConfirmDeactivate] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [workerAccountOp, setWorkerAccountOp] = useState<'idle' | 'pending' | 'done' | 'error'>('idle')
+  const [workerAccountError, setWorkerAccountError] = useState<string | null>(null)
 
   // Edit form state — initialized from employee prop
   const [fullName, setFullName] = useState(employee.full_name)
@@ -503,6 +509,57 @@ export default function EmployeeDetail({ employee, contracts, leaves, role }: Pr
           </div>
         )}
       </div>
+
+      {/* Worker account for digital signing verification */}
+      {!isViewer && (
+        <div className="rounded-lg border border-border bg-card p-5 space-y-3">
+          <p className={labelClass}>Cuenta de firma electrónica</p>
+          <p className="text-sm text-muted-foreground">
+            {employee.user_id
+              ? 'Este empleado tiene una cuenta activa. Podrá verificar su identidad antes de firmar contratos digitalmente.'
+              : 'Sin cuenta de firma. Al crearla, el empleado recibirá un email para configurar su contraseña y podrá autenticarse antes de firmar.'}
+          </p>
+          {workerAccountError && (
+            <p className="text-xs text-destructive bg-destructive/10 rounded px-3 py-1.5">
+              {workerAccountError}
+            </p>
+          )}
+          {workerAccountOp === 'done' && (
+            <p className="text-xs text-emerald-400 bg-emerald-500/10 rounded px-3 py-1.5">
+              {employee.user_id ? 'Cuenta revocada correctamente.' : 'Invitación enviada al correo del empleado.'}
+            </p>
+          )}
+          {employee.user_id ? (
+            <button
+              disabled={workerAccountOp === 'pending'}
+              onClick={async () => {
+                setWorkerAccountOp('pending')
+                setWorkerAccountError(null)
+                const res = await revokeWorkerAccountAction(employee.id)
+                if ('error' in res) { setWorkerAccountError(res.error); setWorkerAccountOp('error') }
+                else { setWorkerAccountOp('done'); router.refresh() }
+              }}
+              className="rounded-md border border-destructive/40 px-3 py-1.5 text-sm text-destructive hover:bg-destructive/10 disabled:opacity-50 transition-colors"
+            >
+              {workerAccountOp === 'pending' ? 'Revocando…' : 'Revocar cuenta de firma'}
+            </button>
+          ) : (
+            <button
+              disabled={workerAccountOp === 'pending'}
+              onClick={async () => {
+                setWorkerAccountOp('pending')
+                setWorkerAccountError(null)
+                const res = await inviteWorkerAction(employee.id)
+                if ('error' in res) { setWorkerAccountError(res.error); setWorkerAccountOp('error') }
+                else { setWorkerAccountOp('done') }
+              }}
+              className="rounded-md border border-border px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/30 disabled:opacity-50 transition-colors"
+            >
+              {workerAccountOp === 'pending' ? 'Enviando invitación…' : 'Crear cuenta de firma'}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Danger zone — hidden for viewers */}
       {!isViewer && <div className="rounded-lg border border-destructive/30 p-5 space-y-4">

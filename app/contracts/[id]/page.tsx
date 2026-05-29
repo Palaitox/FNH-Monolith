@@ -23,7 +23,7 @@ export default async function ContractDetailPage({ params }: Props) {
 
   const [employee, initialContractDates] = await Promise.all([
     getEmployee(supabase, doc.contract_cases?.employee_id ?? ''),
-    doc.document_type === 'OTRO_SI' && doc.case_id
+    doc.document_type === 'OTRO_SI_AMPLIACION' && doc.case_id
       ? getInitialContractDates(doc.case_id)
       : Promise.resolve(null),
   ])
