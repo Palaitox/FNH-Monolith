@@ -4,11 +4,10 @@
 
 > Actualizar al cerrar cada sesión. Para detalles, ver las secciones de fase correspondientes abajo.
 
-- **Fase actual:** Phase 18 ✅ | Mejoras legales firma electrónica + portal worker + Otro Sí split (2026-05-27)
-- **Último cambio importante:** Rol worker + portal `/worker` + WorkerVerificationModal; mejoras legales (IP/UA logs, system_logs rep, consentimiento, copia empleado); OTRO_SI_AMPLIACION como tipo separado; OtroSiPago/Ampliacion alineados a plantillas reales. NDs 61–64; ND-59 actualizada. Migraciones 0019–0020 aplicadas en producción.
+- **Fase actual:** Phase 18 ✅ | improvements (activa) — bug fix firma worker (2026-05-29)
+- **Último cambio importante:** Fix `serverActions.bodySizeLimit: '10mb'` en `next.config.ts` (ND-65) — PDF base64 del portal worker superaba límite 1MB por defecto de Next.js, produciendo error opaco al firmar. Phase 18: rol worker + portal `/worker` + WorkerVerificationModal; mejoras legales (IP/UA logs, consentimiento, copia empleado); OTRO_SI_AMPLIACION como tipo separado; NDs 61–65; migraciones 0019–0020 en producción.
 - **Pendientes inmediatos:**
-  - ⏳ Deploy a Vercel (commit + push pendiente de instrucción)
-  - ⏳ Probar portal worker en producción
+  - ⏳ Probar portal worker en producción con empleado real
   - ⏳ Probar flujo Otro Sí Ampliación completo
   - ⏳ Probar login iPad Air (iOS 12) — ND-60
   - ⏳ Aplicar patrón ND-58 a `createDriverAction`

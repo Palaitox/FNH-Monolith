@@ -5,15 +5,20 @@
 ---
 
 ## ¿En qué fase estamos?
-**Phase 18 ✅. Mejoras legales firma electrónica + portal worker + dos subtipos de Otro Sí. Rama `improvements` — sin deploy todavía (esperando instrucción explícita).**
+**Phase 18 ✅ y deployada. Rama `improvements` activa con bug fix de firma worker (ND-65). Merge a `main` pendiente de deploy.**
 
 Migraciones aplicadas en producción: 0001–0020.
 
 ---
 
-## Estado real hoy (2026-05-27)
+## Estado real hoy (2026-05-29)
 
 ### Completado en esta sesión (rama `improvements`)
+- ✅ Fix bug firma portal worker: error "An unexpected response was received from the server"
+  al firmar — causa: PDF base64 superaba límite 1MB de Server Actions.
+  Fix: `serverActions.bodySizeLimit: '10mb'` en `next.config.ts` — ND-65
+
+### Completado en sesiones anteriores (rama `improvements`)
 - ✅ IP + User-Agent en `system_logs` al firmar (trabajador y representante) — Gaps 1–2 Phase 18
 - ✅ `system_logs` forense para firma del representante (antes solo en `contract_audit_logs`)
 - ✅ Texto de consentimiento legal en `SignatureModal` antes del canvas — Decreto 2364/2012
@@ -29,11 +34,10 @@ Migraciones aplicadas en producción: 0001–0020.
 - ✅ `+ Agregar` habilitado para contratos vencidos (quitado guard `!isExpired`)
 - ✅ `OtroSiPago` restaurado con fecha hardcodeada `2026-05-16`
 - ✅ `OtroSiAmpliacion` ajustado a plantilla real (ciudad uppercase en tabla, Para Constancia sin bold)
-- ✅ NDs 61–64 documentadas; ND-59 actualizada
+- ✅ NDs 61–65 documentadas; ND-59 actualizada
 
 ### Pendiente operativo
-- ⏳ Deploy a Vercel (commit + push pendiente de instrucción)
-- ⏳ Probar portal `/worker` en producción (requiere empleado con cuenta worker activa)
+- ⏳ Probar portal `/worker` en producción con empleado real que tenga cuenta worker activa
 - ⏳ Probar flujo Otro Sí Ampliación completo en producción
 - ⏳ Probar login iPad Air (iOS 12) con fix transpilePackages — ND-60
 - ⏳ Aplicar patrón ND-58 a `createDriverAction`
@@ -63,11 +67,11 @@ Migraciones aplicadas en producción: 0001–0020.
 | `sinExpediente` = `docs.length === 0`; `sinContrato` = tuvo docs pero ninguno vigente | `contracts/actions/contracts.ts:getEmployeeContractStatusAction` | ND-57 |
 | Server Actions con errores visibles al usuario deben RETORNAR `{ error }`, no lanzar | `buses/actions/buses.ts:createVehicleAction` (patrón) | ND-58 |
 | `OTRO_SI_AMPLIACION` requiere `otroSiData` en `buildContractVars`; sin él fechas vacías | `pdf-vars.ts`, `contract-pdf.tsx` | ND-59 |
-| `affects_term = true` solo para `PRORROGA` y `OTRO_SI_AMPLIACION` — no para `OTRO_SI` | `contracts/actions/contracts.ts:createContractAction` | ND-64 |
 | `transpilePackages: ['@supabase/ssr', '@supabase/supabase-js']` en `next.config.ts` — no eliminar | `next.config.ts` | ND-60 |
 | Rol `worker` tiene `ROLE_HIERARCHY = -1`; nueva sección DEBE tener guard en su `layout.tsx` | `auth.ts`, 5 layouts de sección | ND-61 |
 | `WorkerVerificationModal` usa `persistSession: false + memoryStorage` — nunca cliente normal | `app/contracts/[id]/WorkerVerificationModal.tsx` | ND-62 |
 | `workerSignContractAction` verifica `case_id → employee_id = worker's employee_id` antes de firmar | `app/worker/actions.ts` | ND-63 |
+| `serverActions.bodySizeLimit: '10mb'` en `next.config.ts` — no reducir ni eliminar | `next.config.ts` | ND-65 |
 
 ---
 
@@ -81,11 +85,10 @@ Cualquier migración SQL debe correrse manualmente en el Dashboard del proyecto 
 
 ## Siguiente acción concreta
 
-1. Hacer commit + push (cuando el usuario lo indique explícitamente)
-2. Probar portal `/worker` en producción con empleado real que tenga cuenta worker
-3. Probar flujo Otro Sí Ampliación completo (crear → firmar trabajador → firmar rep.)
-4. Probar login iPad Air (iOS 12) — ND-60
-5. Aplicar patrón ND-58 a `createDriverAction`
+1. Probar portal `/worker` en producción con empleado real que tenga cuenta worker activa
+2. Probar flujo Otro Sí Ampliación completo (crear → firmar trabajador → firmar rep.)
+3. Probar login iPad Air (iOS 12) — ND-60
+4. Aplicar patrón ND-58 a `createDriverAction`
 
 ---
 
@@ -98,3 +101,4 @@ Cualquier migración SQL debe correrse manualmente en el Dashboard del proyecto 
 - iOS 12 no soporta `??` ni `?.` — siempre mantener `transpilePackages` en `next.config.ts` — ND-60
 - Nueva sección sin guard worker en su layout → workers ganan acceso — ND-61
 - `WorkerVerificationModal` con cliente Supabase normal → reemplaza sesión del coordinador — ND-62
+- PDF base64 en Server Action supera 1MB por defecto → error opaco — mantener `bodySizeLimit: '10mb'` — ND-65
