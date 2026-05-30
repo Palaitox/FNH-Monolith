@@ -9,8 +9,8 @@ import {
   reactivateUserAction,
   deleteUserAction,
 } from '@/app/admin/actions/users'
-import { ROLE_LABELS, ROLE_COLORS } from '@/app/admin/types'
-import type { AppUser, AppUserRole } from '@/app/admin/types'
+import { ROLE_LABELS, ROLE_COLORS, MANAGEMENT_ROLES } from '@/app/admin/types'
+import type { AppUser, ManagementRole } from '@/app/admin/types'
 
 const labelClass = 'text-xs font-medium uppercase tracking-wide text-muted-foreground'
 const fieldClass =
@@ -26,7 +26,10 @@ export default function UserDetail({ user, currentUserId }: Props) {
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [editRole, setEditRole] = useState(false)
-  const [selectedRole, setSelectedRole] = useState<AppUserRole>(user.role)
+  const isWorker = user.role === 'worker'
+  const [selectedRole, setSelectedRole] = useState<ManagementRole>(
+    isWorker ? 'coordinator' : (user.role as ManagementRole),
+  )
   const [confirmDeactivate, setConfirmDeactivate] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
 
@@ -35,7 +38,7 @@ export default function UserDetail({ user, currentUserId }: Props) {
 
   // Sync selectedRole when server refreshes user data
   useEffect(() => {
-    setSelectedRole(user.role)
+    if (user.role !== 'worker') setSelectedRole(user.role as ManagementRole)
   }, [user.role])
 
   function handleRoleSave() {
@@ -119,15 +122,15 @@ export default function UserDetail({ user, currentUserId }: Props) {
         {/* Role row */}
         <div className="flex items-center justify-between px-5 py-3 gap-4">
           <span className={`w-44 shrink-0 ${labelClass}`}>Rol</span>
-          {editRole ? (
+          {editRole && !isWorker ? (
             <div className="flex items-center gap-2 flex-1">
               <select
                 className={`${fieldClass} flex-1`}
                 value={selectedRole}
-                onChange={(e) => setSelectedRole(e.target.value as AppUserRole)}
+                onChange={(e) => setSelectedRole(e.target.value as ManagementRole)}
               >
-                {(Object.entries(ROLE_LABELS) as [AppUserRole, string][]).map(([value, label]) => (
-                  <option key={value} value={value}>{label}</option>
+                {MANAGEMENT_ROLES.map((value) => (
+                  <option key={value} value={value}>{ROLE_LABELS[value]}</option>
                 ))}
               </select>
               <button
@@ -138,7 +141,7 @@ export default function UserDetail({ user, currentUserId }: Props) {
                 {isPending ? '…' : 'Guardar'}
               </button>
               <button
-                onClick={() => { setEditRole(false); setSelectedRole(user.role) }}
+                onClick={() => { setEditRole(false); setSelectedRole(user.role as ManagementRole) }}
                 className="rounded-md border border-border px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
               >
                 Cancelar
@@ -146,10 +149,16 @@ export default function UserDetail({ user, currentUserId }: Props) {
             </div>
           ) : (
             <div className="flex items-center justify-between flex-1">
-              <span className={`inline-flex items-center rounded-full border px-2 py-0.5 font-mono text-xs ${ROLE_COLORS[user.role]}`}>
-                {ROLE_LABELS[user.role]}
-              </span>
-              {isActive && !isSelf && (
+              {isWorker ? (
+                <span className="inline-flex items-center rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 font-mono text-xs text-amber-400">
+                  Worker
+                </span>
+              ) : (
+                <span className={`inline-flex items-center rounded-full border px-2 py-0.5 font-mono text-xs ${ROLE_COLORS[user.role as ManagementRole]}`}>
+                  {ROLE_LABELS[user.role as ManagementRole]}
+                </span>
+              )}
+              {isActive && !isSelf && !isWorker && (
                 <button
                   onClick={() => setEditRole(true)}
                   className="text-xs text-muted-foreground hover:text-foreground transition-colors"

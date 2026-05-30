@@ -19,7 +19,25 @@ export async function listUsersAction(): Promise<AppUser[]> {
     .order('name', { ascending: true })
 
   if (error) throw error
-  return (data ?? []) as AppUser[]
+  const users = (data ?? []) as AppUser[]
+
+  // For workers, determine whether they've accepted their invitation by checking
+  // email_confirmed_at in auth.users (null = invitation sent but not yet accepted).
+  const workerIds = users.filter((u) => u.role === 'worker').map((u) => u.id)
+  if (workerIds.length > 0) {
+    const service = await createSupabaseServiceClient()
+    const { data: authData } = await service.auth.admin.listUsers({ perPage: 1000 })
+    const confirmedMap = new Map(
+      (authData?.users ?? []).map((u) => [u.id, !!u.email_confirmed_at]),
+    )
+    return users.map((u) =>
+      u.role === 'worker'
+        ? { ...u, invite_confirmed: confirmedMap.get(u.id) ?? false }
+        : u,
+    )
+  }
+
+  return users
 }
 
 export async function getUserAction(id: string): Promise<AppUser | null> {

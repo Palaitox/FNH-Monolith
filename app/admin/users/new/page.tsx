@@ -4,8 +4,8 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { inviteUserAction } from '@/app/admin/actions/users'
-import { ROLE_LABELS } from '@/app/admin/types'
-import type { AppUserRole } from '@/app/admin/types'
+import { ROLE_LABELS, MANAGEMENT_ROLES } from '@/app/admin/types'
+import type { ManagementRole } from '@/app/admin/types'
 
 const labelClass = 'text-xs font-medium uppercase tracking-wide text-muted-foreground'
 const fieldClass =
@@ -18,7 +18,7 @@ export default function InviteUserPage() {
 
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
-  const [role, setRole] = useState<AppUserRole>('coordinator')
+  const [role, setRole] = useState<ManagementRole>('coordinator')
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -80,10 +80,10 @@ export default function InviteUserPage() {
             <select
               className={fieldClass}
               value={role}
-              onChange={(e) => setRole(e.target.value as AppUserRole)}
+              onChange={(e) => setRole(e.target.value as ManagementRole)}
             >
-              {(Object.entries(ROLE_LABELS) as [AppUserRole, string][]).map(([value, label]) => (
-                <option key={value} value={value}>{label}</option>
+              {MANAGEMENT_ROLES.map((value) => (
+                <option key={value} value={value}>{ROLE_LABELS[value]}</option>
               ))}
             </select>
             <p className="text-xs text-muted-foreground mt-1">
