@@ -21,12 +21,11 @@ export default function NewDriverPage() {
     if (!cedula.trim()) return setError('La cédula es requerida.')
 
     startTransition(async () => {
-      try {
-        const driver = await createDriverAction({ full_name: fullName.trim(), cedula: cedula.trim() })
-        router.push(`/buses/drivers/${driver.id}`)
-      } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e)
-        setError(msg.includes('unique') ? 'Ya existe un conductor con esa cédula.' : msg)
+      const result = await createDriverAction({ full_name: fullName.trim(), cedula: cedula.trim() })
+      if ('error' in result) {
+        setError(result.error)
+      } else {
+        router.push(`/buses/drivers/${result.driver.id}`)
       }
     })
   }
