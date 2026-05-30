@@ -4,13 +4,10 @@
 
 > Actualizar al cerrar cada sesión. Para detalles, ver las secciones de fase correspondientes abajo.
 
-- **Fase actual:** Phase 18 ✅ | improvements (activa) — bug fix firma worker (2026-05-29)
-- **Último cambio importante:** Fix `serverActions.bodySizeLimit: '10mb'` en `next.config.ts` (ND-65) — PDF base64 del portal worker superaba límite 1MB por defecto de Next.js, produciendo error opaco al firmar. Phase 18: rol worker + portal `/worker` + WorkerVerificationModal; mejoras legales (IP/UA logs, consentimiento, copia empleado); OTRO_SI_AMPLIACION como tipo separado; NDs 61–65; migraciones 0019–0020 en producción.
+- **Fase actual:** Phase 18 ✅ completa y estable (2026-05-30)
+- **Último cambio importante:** `createDriverAction` aplica patrón ND-58. Todos los bugs de firma worker resueltos (WorkerVerificationModal singleton/cookie, storage RLS). Portal worker validado en producción. Tablet nuevo funcionando. NDs 61–65; migraciones 0019–0020 en producción.
 - **Pendientes inmediatos:**
-  - ⏳ Probar portal worker en producción con empleado real
-  - ⏳ Probar flujo Otro Sí Ampliación completo
-  - ⏳ Probar login iPad Air (iOS 12) — ND-60
-  - ⏳ Aplicar patrón ND-58 a `createDriverAction`
+  - ⏳ Aprobación contenido Otro Sí Ampliación por coordinadora
 - **Bugs abiertos conocidos:** ninguno
 - **Siguiente milestone:** Phase 19 — features por definir con el usuario
 - **⚠️ Infraestructura:** MCP Supabase apunta a `ukzccqogkbfdtymmgavj`; la app usa `qolnrtoznrgiedyhffbn`. Las migraciones SQL deben aplicarse manualmente en el Dashboard del proyecto correcto.

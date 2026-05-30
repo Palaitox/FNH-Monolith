@@ -5,7 +5,7 @@
 ---
 
 ## ¿En qué fase estamos?
-**Phase 18 ✅ y deployada. Rama `improvements` activa con bug fix de firma worker (ND-65). Merge a `main` pendiente de deploy.**
+**Phase 18 ✅ completa y estable. Todos los pendientes operativos resueltos. Sin deuda técnica abierta.**
 
 Migraciones aplicadas en producción: 0001–0020.
 
@@ -14,13 +14,14 @@ Migraciones aplicadas en producción: 0001–0020.
 ## Estado real hoy (2026-05-29)
 
 ### Completado en esta sesión (rama `improvements`)
-- ✅ Fix bug firma worker: error "An unexpected response was received from the server"
-  Causa raíz: `WorkerVerificationModal` usaba `createBrowserClient` de `@supabase/ssr`,
-  que ignora `auth.storage`/`persistSession: false` y tiene singleton en browsers.
-  `signInWithPassword` del worker sobreescribía las cookies del coordinador; `signOut`
-  destruía la sesión. `attachSignedPdfAction` → `requireRole('coordinator')` fallaba.
-  Fix: reemplazar `createBrowserClient` por `createClient` de `@supabase/supabase-js` — ND-62 actualizada.
-- ✅ `serverActions.bodySizeLimit: '10mb'` en `next.config.ts` — ND-65 (fix adicional preventivo)
+- ✅ Fix bug firma worker coordinador: `WorkerVerificationModal` usaba `createBrowserClient` de `@supabase/ssr`
+  (sobreescribe cookies, singleton) → reemplazado por `createClient` de `@supabase/supabase-js` — ND-62
+- ✅ Fix bug firma portal worker: storage RLS violation → service client puro sin overlay de cookies — ND-63
+- ✅ `serverActions.bodySizeLimit: '10mb'` en `next.config.ts` — ND-65
+- ✅ `createDriverAction` aplica patrón ND-58: retorna `{ driver } | { error }`, 23505 → mensaje legible
+- ✅ Portal `/worker` probado en producción con empleado real ✓
+- ✅ Flujo Otro Sí Ampliación probado en producción ✓ (contenido pendiente aprobación coordinadora)
+- ✅ iPad Air reemplazado por tablet nuevo con magic pen — funciona correctamente
 
 ### Completado en sesiones anteriores (rama `improvements`)
 - ✅ IP + User-Agent en `system_logs` al firmar (trabajador y representante) — Gaps 1–2 Phase 18
@@ -41,10 +42,8 @@ Migraciones aplicadas en producción: 0001–0020.
 - ✅ NDs 61–65 documentadas; ND-59 actualizada
 
 ### Pendiente operativo
-- ⏳ Probar portal `/worker` en producción con empleado real que tenga cuenta worker activa
-- ⏳ Probar flujo Otro Sí Ampliación completo en producción
-- ⏳ Probar login iPad Air (iOS 12) con fix transpilePackages — ND-60
-- ⏳ Aplicar patrón ND-58 a `createDriverAction`
+- ⏳ Aprobación de contenido del Otro Sí Ampliación por la coordinadora
+- ⏳ Phase 19 — features por definir
 
 ---
 
@@ -89,10 +88,8 @@ Cualquier migración SQL debe correrse manualmente en el Dashboard del proyecto 
 
 ## Siguiente acción concreta
 
-1. Probar portal `/worker` en producción con empleado real que tenga cuenta worker activa
-2. Probar flujo Otro Sí Ampliación completo (crear → firmar trabajador → firmar rep.)
-3. Probar login iPad Air (iOS 12) — ND-60
-4. Aplicar patrón ND-58 a `createDriverAction`
+1. Definir features para Phase 19 con el usuario
+2. Esperar aprobación de contenido del Otro Sí Ampliación por la coordinadora
 
 ---
 
