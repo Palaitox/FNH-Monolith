@@ -2,7 +2,11 @@
 
 import { useState } from 'react'
 import { X, ShieldCheck } from 'lucide-react'
-import { createBrowserClient } from '@supabase/ssr'
+// Must use @supabase/supabase-js createClient, NOT @supabase/ssr createBrowserClient.
+// The SSR client overrides auth.storage with cookie-based storage and persistSession: true
+// regardless of what the caller passes, AND has singleton behaviour in browsers (it would
+// return the cached coordinator client). Both break the session-isolation guarantee (ND-62).
+import { createClient } from '@supabase/supabase-js'
 
 interface Props {
   workerName: string
@@ -35,7 +39,7 @@ export default function WorkerVerificationModal({ workerName, workerEmail, onVer
     try {
       // Create an isolated in-memory Supabase client.
       // persistSession: false + memory storage → zero impact on coordinator's cookies.
-      const tempClient = createBrowserClient(
+      const tempClient = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
         {

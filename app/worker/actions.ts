@@ -1,9 +1,24 @@
 'use server'
 
 import { headers } from 'next/headers'
-import { getUserRole, getUserClaims, createSupabaseServiceClient } from '@/app/(shared)/lib/auth'
+import { getUserRole, getUserClaims } from '@/app/(shared)/lib/auth'
 import { createClient } from '@/lib/server'
+import { createClient as createRawServiceClient } from '@supabase/supabase-js'
 import { logDocumentAction } from '@/app/(shared)/lib/db'
+
+// Creates a pure service client with no cookie-based auth overlay.
+// @supabase/ssr's createServerClient reads the caller's JWT from cookies even when
+// the service key is used as the API key. For storage uploads this causes RLS
+// violations because storage uses the Authorization Bearer token (worker JWT),
+// not the apikey header. The plain supabase-js client uses the service key for
+// both headers when no user session is loaded, bypassing storage RLS correctly.
+function createServiceClient() {
+  return createRawServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SECRET_KEY!,
+    { auth: { persistSession: false, autoRefreshToken: false } },
+  )
+}
 
 /**
  * Signs a contract on behalf of a worker.
@@ -26,7 +41,7 @@ export async function workerSignContractAction(
   const userId = claims?.sub
   if (!userId) return { error: 'Unauthorized' }
 
-  const service = await createSupabaseServiceClient()
+  const service = createServiceClient()
 
   // Find the employee linked to this worker account
   const { data: employee } = await service
@@ -144,7 +159,7 @@ export async function getWorkerContractsAction(): Promise<{
   const userId = claims?.sub
   if (!userId) return { error: 'Unauthorized' }
 
-  const service = await createSupabaseServiceClient()
+  const service = createServiceClient()
 
   const { data: employee } = await service
     .from('employees')
