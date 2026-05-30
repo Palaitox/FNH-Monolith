@@ -57,7 +57,7 @@ export async function getDriverById(id: string): Promise<Driver | null> {
 export async function createDriverAction(input: {
   full_name: string
   cedula: string
-}): Promise<Driver> {
+}): Promise<{ driver: Driver } | { error: string }> {
   await requireRole('coordinator')
   const supabase = await createClient()
   const { data, error } = await supabase
@@ -65,9 +65,12 @@ export async function createDriverAction(input: {
     .insert({ full_name: input.full_name, cedula: input.cedula })
     .select()
     .single()
-  if (error) throw error
+  if (error) {
+    if (error.code === '23505') return { error: 'Ya existe un conductor con esa cédula.' }
+    return { error: error.message }
+  }
   revalidatePath('/buses/drivers')
-  return data
+  return { driver: data }
 }
 
 export async function deactivateDriverAction(id: string): Promise<void> {
