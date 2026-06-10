@@ -4,8 +4,8 @@
 
 > Actualizar al cerrar cada sesión. Para detalles, ver las secciones de fase correspondientes abajo.
 
-- **Fase actual:** Phase 18 ✅ completa y estable (2026-05-30)
-- **Último cambio importante:** `createDriverAction` aplica patrón ND-58. Todos los bugs de firma worker resueltos (WorkerVerificationModal singleton/cookie, storage RLS). Portal worker validado en producción. Tablet nuevo funcionando. NDs 61–65; migraciones 0019–0020 en producción.
+- **Fase actual:** Phase 18 ✅ completa y estable; mejoras adicionales en `improvements` (2026-06-10)
+- **Último cambio importante:** Admin — sección "Workers" separada/colapsable, card "Workers activos", chip de estado de invitación (ND-66). `OtroSiAmpliacion` — `break` en cláusula SEGUNDA evita firmas huérfanas (ND-59 actualizada). NDs 61–66; migraciones 0019–0020 en producción.
 - **Pendientes inmediatos:**
   - ⏳ Aprobación contenido Otro Sí Ampliación por coordinadora
 - **Bugs abiertos conocidos:** ninguno

@@ -1111,8 +1111,9 @@ function OtroSiAmpliacion({ v }: { v: ContractVars }) {
           {'.'}
         </Text>
 
-        <Text style={S.body}>
-          {'SEGUNDA: Las demás cláusulas del contrato no sufren ninguna modificación. El presente OTRO-SI ha sido discutido amplia y libremente entre las partes, las cuales aprueban las estipulaciones que lo conforman y reemplaza cualquier acuerdo previo verbal o escrito sobre la materia, en tal sentido lo firman en señal de aceptación del mismo.'}
+        <Text style={S.body} break>
+          <B>{'SEGUNDA:'}</B>
+          {' Las demás cláusulas del contrato no sufren ninguna modificación. El presente OTRO-SI ha sido discutido amplia y libremente entre las partes, las cuales aprueban las estipulaciones que lo conforman y reemplaza cualquier acuerdo previo verbal o escrito sobre la materia, en tal sentido lo firman en señal de aceptación del mismo.'}
         </Text>
 
         <Text style={S.body}>
