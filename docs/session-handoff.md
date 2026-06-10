@@ -11,9 +11,17 @@ Migraciones aplicadas en producción: 0001–0020.
 
 ---
 
-## Estado real hoy (2026-05-29)
+## Estado real hoy (2026-06-10)
 
 ### Completado en esta sesión (rama `improvements`)
+- ✅ Admin: sección "Workers" separada y colapsable (`<details>`), card "Workers activos", chip de estado
+  (Activo / Inv. pendiente / Desactivado) basado en `auth.admin.listUsers()` — ND-66
+- ✅ `admin/types.ts` reestructurado: `ManagementRole` (selectores) vs `AppUserRole = ManagementRole | 'worker'`
+  (listado) — ND-66
+- ✅ `contract-pdf.tsx` — `OtroSiAmpliacion`: `break` en cláusula SEGUNDA evita firmas huérfanas en página
+  extra (pág. 1 = hasta cláusula PRIMERA, pág. 2 = SEGUNDA + firmas, pág. 3 = Preaviso) — ND-59 actualizada
+
+### Completado en sesiones anteriores (rama `improvements`)
 - ✅ Fix bug firma worker coordinador: `WorkerVerificationModal` usaba `createBrowserClient` de `@supabase/ssr`
   (sobreescribe cookies, singleton) → reemplazado por `createClient` de `@supabase/supabase-js` — ND-62
 - ✅ Fix bug firma portal worker: storage RLS violation → service client puro sin overlay de cookies — ND-63
@@ -22,8 +30,6 @@ Migraciones aplicadas en producción: 0001–0020.
 - ✅ Portal `/worker` probado en producción con empleado real ✓
 - ✅ Flujo Otro Sí Ampliación probado en producción ✓ (contenido pendiente aprobación coordinadora)
 - ✅ iPad Air reemplazado por tablet nuevo con magic pen — funciona correctamente
-
-### Completado en sesiones anteriores (rama `improvements`)
 - ✅ IP + User-Agent en `system_logs` al firmar (trabajador y representante) — Gaps 1–2 Phase 18
 - ✅ `system_logs` forense para firma del representante (antes solo en `contract_audit_logs`)
 - ✅ Texto de consentimiento legal en `SignatureModal` antes del canvas — Decreto 2364/2012
@@ -75,6 +81,8 @@ Migraciones aplicadas en producción: 0001–0020.
 | `WorkerVerificationModal` usa `persistSession: false + memoryStorage` — nunca cliente normal | `app/contracts/[id]/WorkerVerificationModal.tsx` | ND-62 |
 | `workerSignContractAction` verifica `case_id → employee_id = worker's employee_id` antes de firmar | `app/worker/actions.ts` | ND-63 |
 | `serverActions.bodySizeLimit: '10mb'` en `next.config.ts` — no reducir ni eliminar | `next.config.ts` | ND-65 |
+| Selectores de rol en admin SOLO iteran `MANAGEMENT_ROLES`; workers se invitan vía `inviteWorkerAction`, nunca desde `/admin/users/new` | `admin/types.ts`, `admin/users/new/page.tsx`, `admin/users/[id]/UserDetail.tsx` | ND-66 |
+| `OtroSiAmpliacion`: `break` en cláusula SEGUNDA mantiene firmas junto a esa cláusula (pág. 2 de 3) | `contract-pdf.tsx` | ND-59 |
 
 ---
 
@@ -103,3 +111,5 @@ Cualquier migración SQL debe correrse manualmente en el Dashboard del proyecto 
 - Nueva sección sin guard worker en su layout → workers ganan acceso — ND-61
 - `WorkerVerificationModal` con `createBrowserClient` de `@supabase/ssr` → sobreescribe cookies del coordinador (ignora `auth.storage` + singleton) — usar `createClient` de `@supabase/supabase-js` — ND-62
 - PDF base64 en Server Action supera 1MB por defecto → error opaco — mantener `bodySizeLimit: '10mb'` — ND-65
+- No agregar `'worker'` a `MANAGEMENT_ROLES`/selectores de admin — los workers se vinculan a `employees.user_id` solo vía `inviteWorkerAction` — ND-66
+- En PDFs react-pdf, `break` en un `<Text>`/`<View>` fuerza salto de página antes de ese elemento — útil para evitar firmas huérfanas, pero no balancea el contenido previo — ND-59
