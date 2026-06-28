@@ -5,7 +5,7 @@
 > Actualizar al cerrar cada sesión. Para detalles, ver las secciones de fase correspondientes abajo.
 
 - **Fase actual:** Phase 18 ✅ completa y estable; mejoras adicionales en `improvements` (2026-06-10)
-- **Último cambio importante:** Admin — sección "Workers" separada/colapsable, card "Workers activos", chip de estado de invitación (ND-66). `OtroSiAmpliacion` — `break` en cláusula SEGUNDA evita firmas huérfanas (ND-59 actualizada). NDs 61–66; migraciones 0019–0020 en producción.
+- **Último cambio importante:** Storage RLS para supervisor (migration 0021). Fix invite flow `token_hash` en `/auth/invite`. Admin workers section + OtroSiAmpliacion break. NDs 61–68; migraciones 0001–0021 en producción (0021 aplicada manualmente).
 - **Pendientes inmediatos:**
   - ⏳ Aprobación contenido Otro Sí Ampliación por coordinadora
 - **Bugs abiertos conocidos:** ninguno

@@ -7,19 +7,19 @@
 ## ¿En qué fase estamos?
 **Phase 18 ✅ completa y estable. Todos los pendientes operativos resueltos. Sin deuda técnica abierta.**
 
-Migraciones aplicadas en producción: 0001–0020.
+Migraciones aplicadas en producción: 0001–0021 (0021 aplicada manualmente).
 
 ---
 
 ## Estado real hoy (2026-06-10)
 
 ### Completado en esta sesión (rama `improvements`)
-- ✅ Admin: sección "Workers" separada y colapsable (`<details>`), card "Workers activos", chip de estado
-  (Activo / Inv. pendiente / Desactivado) basado en `auth.admin.listUsers()` — ND-66
-- ✅ `admin/types.ts` reestructurado: `ManagementRole` (selectores) vs `AppUserRole = ManagementRole | 'worker'`
-  (listado) — ND-66
-- ✅ `contract-pdf.tsx` — `OtroSiAmpliacion`: `break` en cláusula SEGUNDA evita firmas huérfanas en página
-  extra (pág. 1 = hasta cláusula PRIMERA, pág. 2 = SEGUNDA + firmas, pág. 3 = Preaviso) — ND-59 actualizada
+- ✅ Storage RLS fix: políticas `contracts_storage_insert/update_coord_admin` ahora incluyen `supervisor`
+  (migration 0021, aplicada manualmente en `qolnrtoznrgiedyhffbn`) — ND-67
+- ✅ Invite flow: `/auth/invite` maneja formato actual de Supabase (`?token_hash=...&type=...` via `verifyOtp`)
+  además de hash implícito y PKCE — ND-68
+- ✅ Admin: sección "Workers" separada y colapsable, card "Workers activos", chip estado invitación — ND-66
+- ✅ `contract-pdf.tsx` — `OtroSiAmpliacion`: `break` en cláusula SEGUNDA evita firmas huérfanas — ND-59
 
 ### Completado en sesiones anteriores (rama `improvements`)
 - ✅ Fix bug firma worker coordinador: `WorkerVerificationModal` usaba `createBrowserClient` de `@supabase/ssr`
@@ -83,6 +83,8 @@ Migraciones aplicadas en producción: 0001–0020.
 | `serverActions.bodySizeLimit: '10mb'` en `next.config.ts` — no reducir ni eliminar | `next.config.ts` | ND-65 |
 | Selectores de rol en admin SOLO iteran `MANAGEMENT_ROLES`; workers se invitan vía `inviteWorkerAction`, nunca desde `/admin/users/new` | `admin/types.ts`, `admin/users/new/page.tsx`, `admin/users/[id]/UserDetail.tsx` | ND-66 |
 | `OtroSiAmpliacion`: `break` en cláusula SEGUNDA mantiene firmas junto a esa cláusula (pág. 2 de 3) | `contract-pdf.tsx` | ND-59 |
+| Al agregar un nuevo rol: actualizar CHECK constraint en `public.users` Y las políticas `contracts_storage_insert/update_coord_admin` en `storage.objects` | `supabase/migrations/0021_...sql` | ND-67 |
+| `/auth/invite` maneja 3 formatos de token en orden fijo: `token_hash` → hash implícito → `code` | `app/auth/invite/page.tsx` | ND-68 |
 
 ---
 
@@ -96,8 +98,9 @@ Cualquier migración SQL debe correrse manualmente en el Dashboard del proyecto 
 
 ## Siguiente acción concreta
 
-1. Definir features para Phase 19 con el usuario
-2. Esperar aprobación de contenido del Otro Sí Ampliación por la coordinadora
+1. Crear cuenta de supervisor alternativa para testing (vía Dashboard de Supabase o invite desde `/admin`)
+2. Definir features para Phase 19 con el usuario
+3. Esperar aprobación de contenido del Otro Sí Ampliación por la coordinadora
 
 ---
 
@@ -113,3 +116,5 @@ Cualquier migración SQL debe correrse manualmente en el Dashboard del proyecto 
 - PDF base64 en Server Action supera 1MB por defecto → error opaco — mantener `bodySizeLimit: '10mb'` — ND-65
 - No agregar `'worker'` a `MANAGEMENT_ROLES`/selectores de admin — los workers se vinculan a `employees.user_id` solo vía `inviteWorkerAction` — ND-66
 - En PDFs react-pdf, `break` en un `<Text>`/`<View>` fuerza salto de página antes de ese elemento — útil para evitar firmas huérfanas, pero no balancea el contenido previo — ND-59
+- Al agregar un rol nuevo al sistema, las políticas de Storage no se actualizan solas — hay que DROP + CREATE `contracts_storage_insert/update_coord_admin` con el nuevo rol — ND-67
+- El link de invitación de Supabase usa `?token_hash=...&type=...` (no hash implícito) — si se simplifica `/auth/invite` a un solo handler, los invitados no pueden crear contraseña — ND-68
