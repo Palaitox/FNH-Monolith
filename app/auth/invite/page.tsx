@@ -9,6 +9,24 @@ export default function InvitePage() {
 
   useEffect(() => {
     const supabase = createClient()
+    const searchParams = new URLSearchParams(window.location.search)
+
+    // Newer Supabase format: token_hash + type arrive as query params.
+    // Use verifyOtp — works without a PKCE code verifier (server-initiated invite).
+    const tokenHash = searchParams.get('token_hash')
+    const type = searchParams.get('type')
+    if (tokenHash && type) {
+      supabase.auth
+        .verifyOtp({ token_hash: tokenHash, type: type as 'invite' | 'signup' | 'recovery' | 'email' })
+        .then(({ error }) => {
+          if (error) {
+            router.replace('/auth/login?error=invalid_invite')
+          } else {
+            router.replace('/auth/set-password')
+          }
+        })
+      return
+    }
 
     // Implicit flow: tokens arrive in the URL hash (#access_token=...&refresh_token=...)
     const hash = window.location.hash.substring(1)
@@ -29,8 +47,8 @@ export default function InvitePage() {
       return
     }
 
-    // PKCE flow fallback: code arrives as a query param
-    const code = new URLSearchParams(window.location.search).get('code')
+    // PKCE flow: code arrives as a query param (client-initiated flows only)
+    const code = searchParams.get('code')
     if (code) {
       supabase.auth
         .exchangeCodeForSession(code)
