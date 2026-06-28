@@ -48,7 +48,7 @@ Migraciones aplicadas en producción: 0001–0021 (0021 aplicada manualmente).
 - ✅ NDs 61–65 documentadas; ND-59 actualizada
 
 ### Pendiente operativo
-- ⏳ Aprobación de contenido del Otro Sí Ampliación por la coordinadora
+- ✅ Contenido del Otro Sí Ampliación aprobado por la coordinadora — en fase de firmas (2026-06-10)
 - ⏳ Phase 19 — features por definir
 
 ---
@@ -100,7 +100,6 @@ Cualquier migración SQL debe correrse manualmente en el Dashboard del proyecto 
 
 1. Crear cuenta de supervisor alternativa para testing (vía Dashboard de Supabase o invite desde `/admin`)
 2. Definir features para Phase 19 con el usuario
-3. Esperar aprobación de contenido del Otro Sí Ampliación por la coordinadora
 
 ---
 
