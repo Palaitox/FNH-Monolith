@@ -115,7 +115,7 @@ Migraciones SQL pueden correrse vía `supabase-db` o manualmente en el Dashboard
 - En producción Next.js sanitiza errores de Server Actions — usar `return { error }` no `throw` — ND-58
 - `db/employees.ts` importa `DOCUMENT_SELECT` directo de `./contracts`, nunca via el index — ND-51
 - Contratos subidos manualmente tienen `firma_trabajador = null` — es correcto, no un bug — ND-53
-- No consultar el MCP de Supabase para verificar producción — apunta al proyecto equivocado
+- No usar `claude.ai Supabase` (HTTP OAuth) para verificar producción — apunta a `ukzccqogkbfdtymmgavj` (proyecto equivocado). Usar `supabase-db` (stdio/PAT) que sí apunta a `qolnrtoznrgiedyhffbn`
 - Pasar `React.ReactElement` como prop dentro de `<Text>` en react-pdf descarta páginas silenciosamente
 - iOS 12 no soporta `??` ni `?.` — siempre mantener `transpilePackages` en `next.config.ts` — ND-60
 - Nueva sección sin guard worker en su layout → workers ganan acceso — ND-61
