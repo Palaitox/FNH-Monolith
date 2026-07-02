@@ -616,7 +616,7 @@ function LaboralInfoTable({ v }: { v: ContractVars }) {
       <TR label="EMPLEADOR:" value="FUNDACION NUEVO HORIZONTE NIT:821.003.251-4" />
       <TR label="TRABAJADOR:" value={v.trabajador_nombre} />
       <TR label="OFICIO QUE DESEMPEÑARA" value={v.trabajador_cargo} />
-      <TR label="SALARIO" value={v.salario_texto} />
+      <TR label="SALARIO" value={v.salario_recuadro} />
       <TR label="FORMA DE PAGO" value="MENSUAL ENTRE EL DÍA QUINCE (15) Y EL DÍA VEINTE (20) DE CADA MES" />
       <TR label="FECHA DE INICIO:" value={v.fecha_inicio_texto} />
       <TR label="FECHA DE TERMINACION DEL CONTRATO:" value={v.fecha_terminacion_texto} />
@@ -777,7 +777,7 @@ function ContratoPrestacionServicios({ v }: { v: ContractVars }) {
           <TR label="CONTRATANTE:" value="FUNDACION NUEVO HORIZONTE NIT:821.003.251-4" centered />
           <TR label="CONTRATISTA:" value={v.trabajador_nombre} centered />
           <TR label="OBJETO DEL CONTRATO" value={v.trabajador_cargo} centered />
-          <TR label="VALOR DEL CONTRATO" value={v.salario_texto} centered />
+          <TR label="VALOR DEL CONTRATO" value={v.salario_recuadro} centered />
           <TR label="FORMA DE PAGO" value="MENSUAL ENTRE EL DÍA QUINCE (15) Y EL DÍA VEINTE (20) DE CADA MES" centered />
           <TR label="FECHA DE INICIO:" value={v.fecha_inicio_texto} centered />
           <TR label="FECHA DE TERMINACION DEL CONTRATO:" value={v.fecha_terminacion_texto} centered />

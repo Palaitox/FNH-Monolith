@@ -4,13 +4,12 @@
 
 > Actualizar al cerrar cada sesión. Para detalles, ver las secciones de fase correspondientes abajo.
 
-- **Fase actual:** Phase 18 ✅ completa y estable; mejoras adicionales en `improvements` (2026-06-10)
-- **Último cambio importante:** Storage RLS para supervisor (migration 0021). Fix invite flow `token_hash` en `/auth/invite`. Admin workers section + OtroSiAmpliacion break. NDs 61–68; migraciones 0001–0021 en producción (0021 aplicada manualmente).
-- **Pendientes inmediatos:**
-  - ⏳ Aprobación contenido Otro Sí Ampliación por coordinadora
+- **Fase actual:** Phase 18 ✅ completa y estable; mejoras adicionales en `improvements` (2026-07-02)
+- **Último cambio importante:** RLS supervisor write migration 0022 (10 tablas). Fix `revalidatePath('/contracts', 'layout')` para detail page post-firma representante. Salary recuadro en palabras M/CTE (`salario_recuadro` split). Supabase MCP `supabase-db` conectado al proyecto correcto. NDs 61–70; migraciones 0001–0022 en producción.
+- **Pendientes inmediatos:** ninguno
 - **Bugs abiertos conocidos:** ninguno
 - **Siguiente milestone:** Phase 19 — features por definir con el usuario
-- **⚠️ Infraestructura:** MCP Supabase apunta a `ukzccqogkbfdtymmgavj`; la app usa `qolnrtoznrgiedyhffbn`. Las migraciones SQL deben aplicarse manualmente en el Dashboard del proyecto correcto.
+- **⚠️ Infraestructura:** MCP `supabase-db` (stdio/PAT) → proyecto correcto `qolnrtoznrgiedyhffbn` ✓. MCP `claude.ai Supabase` (HTTP OAuth) → `ukzccqogkbfdtymmgavj` (diferente) — no usar para verificar prod.
 
 ---
 
