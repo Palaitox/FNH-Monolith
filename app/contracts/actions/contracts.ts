@@ -337,7 +337,7 @@ export async function attachRepresentativeSignatureAction(
   const supabase = await createClient()
   const meta = await getRequestMetadata()
   await attachRepresentativeSignature(supabase, documentId, pdfPath, filename, pdfHash, firmaRepresentante, meta)
-  revalidatePath('/contracts')
+  revalidatePath('/contracts', 'layout')
 }
 
 export async function sendContractCopyAction(

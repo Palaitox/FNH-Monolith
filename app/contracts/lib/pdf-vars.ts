@@ -38,6 +38,7 @@ export interface ContractVars {
   trabajador_telefono: string
   trabajador_correo: string
   salario_texto: string
+  salario_recuadro: string
   salario_valor: string
   fecha_inicio_texto: string
   fecha_terminacion_texto: string
@@ -126,6 +127,59 @@ function formatCedula(cedula: string): string {
   return str.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
 }
 
+function numberToWords(n: number): string {
+  n = Math.round(n)
+  if (n === 0) return 'CERO'
+
+  const ones = [
+    '', 'UNO', 'DOS', 'TRES', 'CUATRO', 'CINCO', 'SEIS', 'SIETE', 'OCHO', 'NUEVE',
+    'DIEZ', 'ONCE', 'DOCE', 'TRECE', 'CATORCE', 'QUINCE', 'DIECISÉIS', 'DIECISIETE', 'DIECIOCHO', 'DIECINUEVE',
+  ]
+  const twenties = [
+    'VEINTE', 'VEINTIUNO', 'VEINTIDÓS', 'VEINTITRÉS', 'VEINTICUATRO',
+    'VEINTICINCO', 'VEINTISÉIS', 'VEINTISIETE', 'VEINTIOCHO', 'VEINTINUEVE',
+  ]
+  const tensArr = ['', '', 'VEINTE', 'TREINTA', 'CUARENTA', 'CINCUENTA', 'SESENTA', 'SETENTA', 'OCHENTA', 'NOVENTA']
+  const hundredsArr = [
+    '', 'CIENTO', 'DOSCIENTOS', 'TRESCIENTOS', 'CUATROCIENTOS', 'QUINIENTOS',
+    'SEISCIENTOS', 'SETECIENTOS', 'OCHOCIENTOS', 'NOVECIENTOS',
+  ]
+
+  function below100(num: number): string {
+    if (num === 0) return ''
+    if (num < 20) return ones[num]
+    if (num < 30) return twenties[num - 20]
+    const one = num % 10
+    return one === 0 ? tensArr[Math.floor(num / 10)] : `${tensArr[Math.floor(num / 10)]} Y ${ones[one]}`
+  }
+
+  function below1000(num: number): string {
+    if (num === 0) return ''
+    if (num === 100) return 'CIEN'
+    const h = Math.floor(num / 100)
+    const rest = num % 100
+    if (h === 0) return below100(rest)
+    if (rest === 0) return hundredsArr[h]
+    return `${hundredsArr[h]} ${below100(rest)}`
+  }
+
+  // "UNO" → "UN" and "VEINTIUNO" → "VEINTIÚN" when preceding MIL / MILLONES
+  function below1000Apocope(num: number): string {
+    return below1000(num).replace(/VEINTIUNO$/, 'VEINTIÚN').replace(/UNO$/, 'UN')
+  }
+
+  const millions = Math.floor(n / 1_000_000)
+  const thousands = Math.floor((n % 1_000_000) / 1_000)
+  const remainder = n % 1_000
+
+  const parts: string[] = []
+  if (millions > 0) parts.push(millions === 1 ? 'UN MILLÓN' : `${below1000Apocope(millions)} MILLONES`)
+  if (thousands > 0) parts.push(thousands === 1 ? 'MIL' : `${below1000Apocope(thousands)} MIL`)
+  if (remainder > 0) parts.push(below1000(remainder))
+
+  return parts.join(' ')
+}
+
 function buildSalaryText(salarioBase: number | null, auxilioTransporte: number): string {
   if (!salarioBase) return ''
   const fmt = (n: number) => new Intl.NumberFormat('es-CO').format(Math.round(n))
@@ -135,6 +189,13 @@ function buildSalaryText(salarioBase: number | null, auxilioTransporte: number):
     return `${salStr} pesos más auxilio de transporte por valor de ${fmt(auxilioTransporte)} pesos para un total de ${fmt(total)} pesos mensuales`
   }
   return `${salStr} pesos mensuales`
+}
+
+function buildSalaryRecuadro(salarioBase: number | null, auxilioTransporte: number): string {
+  if (!salarioBase) return ''
+  const total = salarioBase + (auxilioTransporte ?? 0)
+  const fmt = (n: number) => new Intl.NumberFormat('es-CO').format(Math.round(n))
+  return `${numberToWords(total)} PESOS M/CTE ($${fmt(total)})`
 }
 
 function calcDuracionDias(fechaInicio: string, fechaTerminacion: string): number {
@@ -268,6 +329,7 @@ export function buildContractVars(
     trabajador_telefono: employee.telefono ?? '',
     trabajador_correo: employee.correo ?? '',
     salario_texto: buildSalaryText(salarioBase, auxilioTransporte),
+    salario_recuadro: buildSalaryRecuadro(salarioBase, auxilioTransporte),
     salario_valor: salarioBase
       ? new Intl.NumberFormat('es-CO').format(Math.round(salarioBase))
       : '',

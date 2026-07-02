@@ -7,13 +7,17 @@
 ## ¿En qué fase estamos?
 **Phase 18 ✅ completa y estable. Todos los pendientes operativos resueltos. Sin deuda técnica abierta.**
 
-Migraciones aplicadas en producción: 0001–0021 (0021 aplicada manualmente).
+Migraciones aplicadas en producción: 0001–0022 (0021 y 0022 aplicadas manualmente).
 
 ---
 
-## Estado real hoy (2026-06-10)
+## Estado real hoy (2026-07-02)
 
 ### Completado en esta sesión (rama `improvements`)
+- ✅ Migration 0022 aplicada: RLS supervisor write para 10 tablas (employees, contract_cases, contract_documents, contract_audit_logs, employee_leaves, vehicles, drivers, verification_pairs, driver_document_events, vehicle_document_events)
+- ✅ `revalidatePath('/contracts', 'layout')` en `attachRepresentativeSignatureAction` — invalida subárbol completo (lista + detalle) — ND-69
+- ✅ `salario_recuadro` separado de `salario_texto` en `ContractVars`/`pdf-vars.ts`: recuadro = total en palabras M/CTE; cuerpo = desglose numérico — ND-70
+- ✅ MCP `supabase-db` (stdio/PAT) conectado al proyecto correcto `qolnrtoznrgiedyhffbn`
 - ✅ Storage RLS fix: políticas `contracts_storage_insert/update_coord_admin` ahora incluyen `supervisor`
   (migration 0021, aplicada manualmente en `qolnrtoznrgiedyhffbn`) — ND-67
 - ✅ Invite flow: `/auth/invite` maneja formato actual de Supabase (`?token_hash=...&type=...` via `verifyOtp`)
@@ -48,7 +52,7 @@ Migraciones aplicadas en producción: 0001–0021 (0021 aplicada manualmente).
 - ✅ NDs 61–65 documentadas; ND-59 actualizada
 
 ### Pendiente operativo
-- ⏳ Aprobación de contenido del Otro Sí Ampliación por la coordinadora
+- ✅ Contenido del Otro Sí Ampliación aprobado por la coordinadora — en fase de firmas (2026-06-10)
 - ⏳ Phase 19 — features por definir
 
 ---
@@ -85,22 +89,25 @@ Migraciones aplicadas en producción: 0001–0021 (0021 aplicada manualmente).
 | `OtroSiAmpliacion`: `break` en cláusula SEGUNDA mantiene firmas junto a esa cláusula (pág. 2 de 3) | `contract-pdf.tsx` | ND-59 |
 | Al agregar un nuevo rol: actualizar CHECK constraint en `public.users` Y las políticas `contracts_storage_insert/update_coord_admin` en `storage.objects` | `supabase/migrations/0021_...sql` | ND-67 |
 | `/auth/invite` maneja 3 formatos de token en orden fijo: `token_hash` → hash implícito → `code` | `app/auth/invite/page.tsx` | ND-68 |
+| Mutaciones de contratos que afectan lista + detalle → `revalidatePath('/contracts', 'layout')`, nunca sin tipo | `contracts/actions/contracts.ts:attachRepresentativeSignatureAction` | ND-69 |
+| `salario_recuadro` = header (total en palabras M/CTE); `salario_texto` = cuerpo cláusulas (desglose numérico) — no fusionar | `pdf-vars.ts`, `contract-pdf.tsx:619,780` | ND-70 |
 
 ---
 
 ## ⚠️ Dato crítico de infraestructura
 
-La app usa **`qolnrtoznrgiedyhffbn.supabase.co`**.  
-El MCP de Supabase en sesión **apunta a `ukzccqogkbfdtymmgavj`** (proyecto diferente).  
-Cualquier migración SQL debe correrse manualmente en el Dashboard del proyecto correcto (`qolnrtoznrgiedyhffbn`).
+La app usa **`qolnrtoznrgiedyhffbn.supabase.co`**.
+- MCP `supabase-db` (stdio/PAT) → apunta al proyecto **correcto** `qolnrtoznrgiedyhffbn` ✓
+- MCP `claude.ai Supabase` (HTTP OAuth) → apunta a `ukzccqogkbfdtymmgavj` (proyecto diferente) — no usar para verificar prod.
+
+Migraciones SQL pueden correrse vía `supabase-db` o manualmente en el Dashboard de `qolnrtoznrgiedyhffbn`.
 
 ---
 
 ## Siguiente acción concreta
 
-1. Crear cuenta de supervisor alternativa para testing (vía Dashboard de Supabase o invite desde `/admin`)
+1. Verificar flujo firma representante end-to-end en prod (migration 0022 + revalidatePath ya aplicados)
 2. Definir features para Phase 19 con el usuario
-3. Esperar aprobación de contenido del Otro Sí Ampliación por la coordinadora
 
 ---
 
@@ -118,3 +125,5 @@ Cualquier migración SQL debe correrse manualmente en el Dashboard del proyecto 
 - En PDFs react-pdf, `break` en un `<Text>`/`<View>` fuerza salto de página antes de ese elemento — útil para evitar firmas huérfanas, pero no balancea el contenido previo — ND-59
 - Al agregar un rol nuevo al sistema, las políticas de Storage no se actualizan solas — hay que DROP + CREATE `contracts_storage_insert/update_coord_admin` con el nuevo rol — ND-67
 - El link de invitación de Supabase usa `?token_hash=...&type=...` (no hash implícito) — si se simplifica `/auth/invite` a un solo handler, los invitados no pueden crear contraseña — ND-68
+- `revalidatePath('/contracts')` sin segundo argumento solo invalida la lista — el detail page queda stale tras firma del representante — usar `revalidatePath('/contracts', 'layout')` — ND-69
+- `salario_recuadro` y `salario_texto` son campos distintos — no fusionar; recuadro = total en palabras M/CTE, cuerpo = desglose numérico — ND-70
